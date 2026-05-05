@@ -4,6 +4,10 @@ import { Repository } from 'typeorm';
 import { v2 as cloudinary } from 'cloudinary';
 import { PropertyImage } from '../properties/entities/property-image.entity';
 import { PropertiesService } from '../properties/properties.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditAction } from '../audit-logs/enums/audit-action.enum';
+import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class MediaService {
@@ -11,9 +15,14 @@ export class MediaService {
     @InjectRepository(PropertyImage)
     private readonly imageRepository: Repository<PropertyImage>,
     private readonly propertiesService: PropertiesService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
-  async uploadImages(propertyId: string, files: Express.Multer.File[]): Promise<PropertyImage[]> {
+  async uploadImages(
+    propertyId: string,
+    files: Express.Multer.File[],
+    performedBy: User,
+  ): Promise<PropertyImage[]> {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files provided');
     }
@@ -22,7 +31,9 @@ export class MediaService {
     const existingCount = property.images?.length || 0;
 
     if (existingCount + files.length > 8) {
-      throw new BadRequestException(`A property can have a maximum of 8 images. Currently has ${existingCount}.`);
+      throw new BadRequestException(
+        `Maximum 8 images per property. Currently has ${existingCount}.`,
+      );
     }
 
     const uploadedImages: PropertyImage[] = [];
@@ -55,13 +66,25 @@ export class MediaService {
       uploadedImages.push(await this.imageRepository.save(image));
     }
 
+    await this.auditLogsService.log({
+      action: AuditAction.IMAGE_UPLOAD,
+      entity: AuditEntity.IMAGE,
+      entityId: propertyId,
+      entityTitle: property.title,
+      performedBy,
+      metadata: { count: uploadedImages.length },
+    });
+
     return uploadedImages;
   }
 
-  async setPrimaryImage(propertyId: string, imageId: string): Promise<PropertyImage> {
+  async setPrimaryImage(
+    propertyId: string,
+    imageId: string,
+    performedBy: User,
+  ): Promise<PropertyImage> {
     const property = await this.propertiesService.findOne(propertyId);
 
-    // remove primary from all images of this property
     await this.imageRepository
       .createQueryBuilder()
       .update(PropertyImage)
@@ -73,20 +96,41 @@ export class MediaService {
     if (!image) throw new NotFoundException('Image not found');
 
     image.isPrimary = true;
-    return this.imageRepository.save(image);
+    const saved = await this.imageRepository.save(image);
+
+    await this.auditLogsService.log({
+      action: AuditAction.UPDATE,
+      entity: AuditEntity.IMAGE,
+      entityId: imageId,
+      entityTitle: property.title,
+      performedBy,
+      metadata: { action: 'set-primary' },
+    });
+
+    return saved;
   }
 
-  async deleteImage(propertyId: string, imageId: string): Promise<{ message: string }> {
-    await this.propertiesService.findOne(propertyId); // ensure property exists
+  async deleteImage(
+    propertyId: string,
+    imageId: string,
+    performedBy: User,
+  ): Promise<{ message: string }> {
+    const property = await this.propertiesService.findOne(propertyId);
 
     const image = await this.imageRepository.findOne({ where: { id: imageId } });
     if (!image) throw new NotFoundException('Image not found');
 
-    // delete from Cloudinary
     await cloudinary.uploader.destroy(image.publicId);
-
-    // delete from DB
     await this.imageRepository.remove(image);
+
+    await this.auditLogsService.log({
+      action: AuditAction.IMAGE_DELETE,
+      entity: AuditEntity.IMAGE,
+      entityId: imageId,
+      entityTitle: property.title,
+      performedBy,
+      metadata: { publicId: image.publicId },
+    });
 
     return { message: 'Image deleted successfully' };
   }

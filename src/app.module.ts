@@ -10,6 +10,7 @@ import { DistrictsModule } from './modules/districts/districts.module';
 import { DistrictsService } from './modules/districts/districts.service';
 import { PropertiesModule } from './modules/properties/properties.module';
 import { MediaModule } from './modules/media/media.module';
+import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -27,11 +28,11 @@ import { MediaModule } from './modules/media/media.module';
         password: config.get('database.password'),
         database: config.get('database.name'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        // synchronize: process.env.NODE_ENV !== 'production',
         synchronize: true,
         logging: process.env.NODE_ENV === 'development',
       }),
     }),
+    AuditLogsModule, // Must be first — it's global, all other modules depend on it
     UsersModule,
     AuthModule,
     LandlordsModule,

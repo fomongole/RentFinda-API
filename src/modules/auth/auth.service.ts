@@ -5,12 +5,16 @@ import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { User } from '../users/entities/user.entity';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditAction } from '../audit-logs/enums/audit-action.enum';
+import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async register(dto: RegisterDto) {
@@ -24,6 +28,13 @@ export class AuthService {
 
     const passwordMatch = await bcrypt.compare(dto.password, user.password);
     if (!passwordMatch) throw new UnauthorizedException('Invalid credentials');
+
+    await this.auditLogsService.log({
+      action: AuditAction.LOGIN,
+      entity: AuditEntity.AUTH,
+      entityTitle: `${user.name} logged in`,
+      performedBy: user,
+    });
 
     return this.buildResponse(user);
   }

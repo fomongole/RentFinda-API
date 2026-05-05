@@ -2,46 +2,52 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsEnum, IsNumber, IsOptional, IsUUID, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PropertyType } from '../enums/property-type.enum';
+import { PropertyStatus } from '../enums/property-status.enum';
 
 export class FilterPropertyDto {
   @ApiPropertyOptional()
   @IsUUID()
   @IsOptional()
-  districtId: string;
+  districtId?: string;
 
   @ApiPropertyOptional({ enum: PropertyType })
   @IsEnum(PropertyType)
   @IsOptional()
-  type: PropertyType;
+  type?: PropertyType;
+
+  @ApiPropertyOptional({ enum: PropertyStatus })
+  @IsEnum(PropertyStatus)
+  @IsOptional()
+  status?: PropertyStatus;
 
   @ApiPropertyOptional()
   @IsNumber()
   @Min(0)
   @IsOptional()
   @Type(() => Number)
-  minPrice: number;
+  minPrice?: number;
 
   @ApiPropertyOptional()
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  maxPrice: number;
+  maxPrice?: number;
 
   @ApiPropertyOptional()
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  bedrooms: number;
+  bedrooms?: number;
 
   @ApiPropertyOptional({ default: 1 })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  page: number;
+  page?: number;
 
   @ApiPropertyOptional({ default: 10 })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  limit: number;
+  limit?: number;
 }

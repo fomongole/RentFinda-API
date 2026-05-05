@@ -7,6 +7,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { User } from '../users/entities/user.entity';
 
 @ApiTags('Landlords')
 @ApiBearerAuth()
@@ -18,12 +20,12 @@ export class LandlordsController {
 
   @Post()
   @ApiOperation({ summary: 'Create a new landlord (admin only)' })
-  create(@Body() dto: CreateLandlordDto) {
-    return this.landlordsService.create(dto);
+  create(@Body() dto: CreateLandlordDto, @CurrentUser() user: User) {
+    return this.landlordsService.create(dto, user);
   }
 
   @Get()
-  @ApiOperation({ summary: 'Get all landlords (admin only)' })
+  @ApiOperation({ summary: 'Get all active landlords (admin only)' })
   findAll() {
     return this.landlordsService.findAll();
   }
@@ -36,13 +38,13 @@ export class LandlordsController {
 
   @Patch(':id')
   @ApiOperation({ summary: 'Update a landlord (admin only)' })
-  update(@Param('id') id: string, @Body() dto: UpdateLandlordDto) {
-    return this.landlordsService.update(id, dto);
+  update(@Param('id') id: string, @Body() dto: UpdateLandlordDto, @CurrentUser() user: User) {
+    return this.landlordsService.update(id, dto, user);
   }
 
   @Delete(':id')
   @ApiOperation({ summary: 'Deactivate a landlord (admin only)' })
-  remove(@Param('id') id: string) {
-    return this.landlordsService.remove(id);
+  remove(@Param('id') id: string, @CurrentUser() user: User) {
+    return this.landlordsService.remove(id, user);
   }
 }

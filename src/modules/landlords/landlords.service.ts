@@ -4,17 +4,32 @@ import { Repository } from 'typeorm';
 import { Landlord } from './entities/landlord.entity';
 import { CreateLandlordDto } from './dto/create-landlord.dto';
 import { UpdateLandlordDto } from './dto/update-landlord.dto';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { AuditAction } from '../audit-logs/enums/audit-action.enum';
+import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
+import { User } from '../users/entities/user.entity';
 
 @Injectable()
 export class LandlordsService {
   constructor(
     @InjectRepository(Landlord)
     private readonly landlordRepository: Repository<Landlord>,
+    private readonly auditLogsService: AuditLogsService,
   ) {}
 
-  async create(dto: CreateLandlordDto): Promise<Landlord> {
+  async create(dto: CreateLandlordDto, performedBy: User): Promise<Landlord> {
     const landlord = this.landlordRepository.create(dto);
-    return this.landlordRepository.save(landlord);
+    const saved = await this.landlordRepository.save(landlord);
+
+    await this.auditLogsService.log({
+      action: AuditAction.CREATE,
+      entity: AuditEntity.LANDLORD,
+      entityId: saved.id,
+      entityTitle: saved.name,
+      performedBy,
+    });
+
+    return saved;
   }
 
   async findAll(): Promise<Landlord[]> {
@@ -30,16 +45,36 @@ export class LandlordsService {
     return landlord;
   }
 
-  async update(id: string, dto: UpdateLandlordDto): Promise<Landlord> {
+  async update(id: string, dto: UpdateLandlordDto, performedBy: User): Promise<Landlord> {
     const landlord = await this.findOne(id);
     Object.assign(landlord, dto);
-    return this.landlordRepository.save(landlord);
+    const saved = await this.landlordRepository.save(landlord);
+
+    await this.auditLogsService.log({
+      action: AuditAction.UPDATE,
+      entity: AuditEntity.LANDLORD,
+      entityId: saved.id,
+      entityTitle: saved.name,
+      performedBy,
+      metadata: { changes: dto },
+    });
+
+    return saved;
   }
 
-  async remove(id: string): Promise<{ message: string }> {
+  async remove(id: string, performedBy: User): Promise<{ message: string }> {
     const landlord = await this.findOne(id);
     landlord.isActive = false;
     await this.landlordRepository.save(landlord);
+
+    await this.auditLogsService.log({
+      action: AuditAction.DELETE,
+      entity: AuditEntity.LANDLORD,
+      entityId: landlord.id,
+      entityTitle: landlord.name,
+      performedBy,
+    });
+
     return { message: 'Landlord deactivated successfully' };
   }
 }

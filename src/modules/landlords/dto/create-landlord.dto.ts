@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, MinLength } from 'class-validator';
+import { IsEmail, IsString, IsOptional, MinLength } from 'class-validator';
 
 export class CreateLandlordDto {
   @ApiProperty({ example: 'Joseph Kato' })
@@ -11,13 +11,28 @@ export class CreateLandlordDto {
   @IsString()
   phone: string;
 
+  @ApiPropertyOptional({ example: 'joseph.kato@gmail.com' })
+  @IsEmail()
+  @IsOptional()
+  email?: string;
+
   @ApiPropertyOptional({ example: '+256701234567' })
   @IsString()
   @IsOptional()
-  whatsapp: string;
+  whatsapp?: string;
+
+  @ApiPropertyOptional({ example: 'CM9100001234567' })
+  @IsString()
+  @IsOptional()
+  nationalId?: string;
+
+  @ApiPropertyOptional({ example: 'Plot 45, Bukoto Street, Kampala' })
+  @IsString()
+  @IsOptional()
+  physicalAddress?: string;
 
   @ApiPropertyOptional({ example: 'Prefers contact after 5pm' })
   @IsString()
   @IsOptional()
-  notes: string;
+  notes?: string;
 }

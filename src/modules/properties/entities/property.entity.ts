@@ -1,10 +1,18 @@
 import {
-  Entity, PrimaryGeneratedColumn, Column,
-  CreateDateColumn, UpdateDateColumn,
-  ManyToOne, OneToMany, ManyToMany, JoinTable, JoinColumn,
+  Entity,
+  PrimaryGeneratedColumn,
+  Column,
+  CreateDateColumn,
+  UpdateDateColumn,
+  DeleteDateColumn,
+  ManyToOne,
+  OneToMany,
+  JoinColumn,
 } from 'typeorm';
 import { PropertyType } from '../enums/property-type.enum';
 import { PropertyStatus } from '../enums/property-status.enum';
+import { FurnishingStatus } from '../enums/furnishing-status.enum';
+import { LeaseTerm } from '../enums/lease-term.enum';
 import { Landlord } from '../../landlords/entities/landlord.entity';
 import { District } from '../../districts/entities/district.entity';
 import { PropertyImage } from './property-image.entity';
@@ -41,8 +49,46 @@ export class Property {
   @Column({ type: 'enum', enum: PropertyStatus, default: PropertyStatus.AVAILABLE })
   status: PropertyStatus;
 
+  @Column({
+    type: 'enum',
+    enum: FurnishingStatus,
+    default: FurnishingStatus.UNFURNISHED,
+    nullable: true,
+  })
+  furnishing: FurnishingStatus;
+
+  @Column({
+    type: 'enum',
+    enum: LeaseTerm,
+    default: LeaseTerm.MONTHLY,
+    nullable: true,
+  })
+  leaseTerm: LeaseTerm;
+
+  @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
+  securityDeposit: number;
+
+  // Date the property becomes available for move-in
+  @Column({ type: 'date', nullable: true })
+  availableFrom: Date;
+
+  // Floor number — relevant for apartments (null = not applicable)
+  @Column({ nullable: true })
+  floor: number;
+
+  @Column({ default: false })
+  parkingAvailable: boolean;
+
   @Column({ type: 'simple-array', nullable: true })
   amenities: string[];
+
+  // Incremented on every public GET /properties/:id
+  @Column({ default: 0 })
+  viewCount: number;
+
+  // Incremented when a renter taps call/whatsapp on mobile
+  @Column({ default: 0 })
+  enquiryCount: number;
 
   @ManyToOne(() => Landlord, { eager: true, nullable: false })
   @JoinColumn({ name: 'landlord_id' })
@@ -60,4 +106,8 @@ export class Property {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  // Soft delete — TypeORM automatically excludes rows where this is set
+  @DeleteDateColumn()
+  deletedAt: Date;
 }

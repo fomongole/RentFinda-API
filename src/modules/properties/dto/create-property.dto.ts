@@ -1,7 +1,12 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsEnum, IsNumber, IsOptional, IsUUID, IsArray, Min } from 'class-validator';
+import {
+  IsString, IsEnum, IsNumber, IsOptional,
+  IsUUID, IsArray, IsBoolean, IsDateString, Min,
+} from 'class-validator';
 import { Type } from 'class-transformer';
 import { PropertyType } from '../enums/property-type.enum';
+import { FurnishingStatus } from '../enums/furnishing-status.enum';
+import { LeaseTerm } from '../enums/lease-term.enum';
 
 export class CreatePropertyDto {
   @ApiProperty({ example: 'Spacious 2BR Apartment in Kololo' })
@@ -26,13 +31,13 @@ export class CreatePropertyDto {
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  bedrooms: number;
+  bedrooms?: number;
 
   @ApiPropertyOptional({ example: 1 })
   @IsNumber()
   @IsOptional()
   @Type(() => Number)
-  bathrooms: number;
+  bathrooms?: number;
 
   @ApiProperty({ example: 'Kololo' })
   @IsString()
@@ -41,7 +46,40 @@ export class CreatePropertyDto {
   @ApiPropertyOptional({ example: 'Plot 23, Acacia Avenue' })
   @IsString()
   @IsOptional()
-  address: string;
+  address?: string;
+
+  @ApiPropertyOptional({ enum: FurnishingStatus })
+  @IsEnum(FurnishingStatus)
+  @IsOptional()
+  furnishing?: FurnishingStatus;
+
+  @ApiPropertyOptional({ enum: LeaseTerm })
+  @IsEnum(LeaseTerm)
+  @IsOptional()
+  leaseTerm?: LeaseTerm;
+
+  @ApiPropertyOptional({ example: 500000 })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  securityDeposit?: number;
+
+  @ApiPropertyOptional({ example: '2025-08-01' })
+  @IsDateString()
+  @IsOptional()
+  availableFrom?: string;
+
+  @ApiPropertyOptional({ example: 3 })
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  floor?: number;
+
+  @ApiPropertyOptional({ example: true })
+  @IsBoolean()
+  @IsOptional()
+  parkingAvailable?: boolean;
 
   @ApiProperty({ example: 'uuid-of-landlord' })
   @IsUUID()
@@ -51,9 +89,9 @@ export class CreatePropertyDto {
   @IsUUID()
   districtId: string;
 
-  @ApiPropertyOptional({ example: ['Water', 'Electricity', 'WiFi', 'Parking'] })
+  @ApiPropertyOptional({ example: ['Water', 'Electricity', 'WiFi'] })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()
-  amenities: string[];
+  amenities?: string[];
 }

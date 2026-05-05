@@ -10,6 +10,8 @@ import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
+import { CurrentUser } from '../../common/decorators/current-user.decorator';
+import { User } from '../users/entities/user.entity';
 
 @ApiTags('Media')
 @ApiBearerAuth()
@@ -34,8 +36,9 @@ export class MediaController {
   uploadImages(
     @Param('propertyId') propertyId: string,
     @UploadedFiles() files: Express.Multer.File[],
+    @CurrentUser() user: User,
   ) {
-    return this.mediaService.uploadImages(propertyId, files);
+    return this.mediaService.uploadImages(propertyId, files, user);
   }
 
   @Patch(':imageId/set-primary')
@@ -43,8 +46,9 @@ export class MediaController {
   setPrimary(
     @Param('propertyId') propertyId: string,
     @Param('imageId') imageId: string,
+    @CurrentUser() user: User,
   ) {
-    return this.mediaService.setPrimaryImage(propertyId, imageId);
+    return this.mediaService.setPrimaryImage(propertyId, imageId, user);
   }
 
   @Delete(':imageId')
@@ -52,7 +56,8 @@ export class MediaController {
   deleteImage(
     @Param('propertyId') propertyId: string,
     @Param('imageId') imageId: string,
+    @CurrentUser() user: User,
   ) {
-    return this.mediaService.deleteImage(propertyId, imageId);
+    return this.mediaService.deleteImage(propertyId, imageId, user);
   }
 }

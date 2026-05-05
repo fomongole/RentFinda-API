@@ -1,0 +1,5 @@
+export enum FurnishingStatus {
+  FURNISHED = 'FURNISHED',
+  SEMI_FURNISHED = 'SEMI_FURNISHED',
+  UNFURNISHED = 'UNFURNISHED',
+}
