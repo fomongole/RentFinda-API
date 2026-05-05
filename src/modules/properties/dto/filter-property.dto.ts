@@ -39,6 +39,26 @@ export class FilterPropertyDto {
   @Type(() => Number)
   bedrooms?: number;
 
+  // --- Geospatial Filtering for Mobile App ---
+  @ApiPropertyOptional({ description: 'User current latitude' })
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  lat?: number;
+
+  @ApiPropertyOptional({ description: 'User current longitude' })
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  lng?: number;
+
+  @ApiPropertyOptional({ description: 'Search radius in kilometers', default: 5 })
+  @IsNumber()
+  @Min(1)
+  @IsOptional()
+  @Type(() => Number)
+  radius?: number;
+
   @ApiPropertyOptional({ default: 1 })
   @IsNumber()
   @IsOptional()

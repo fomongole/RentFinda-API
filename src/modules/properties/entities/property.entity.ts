@@ -46,6 +46,13 @@ export class Property {
   @Column({ nullable: true })
   address: string;
 
+  // Geospatial Data for Map & Radius filtering
+  @Column({ type: 'decimal', precision: 10, scale: 8, nullable: true })
+  latitude: number;
+
+  @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
+  longitude: number;
+
   @Column({ type: 'enum', enum: PropertyStatus, default: PropertyStatus.AVAILABLE })
   status: PropertyStatus;
 
@@ -68,11 +75,9 @@ export class Property {
   @Column({ type: 'decimal', precision: 12, scale: 2, nullable: true })
   securityDeposit: number;
 
-  // Date the property becomes available for move-in
   @Column({ type: 'date', nullable: true })
   availableFrom: Date;
 
-  // Floor number — relevant for apartments (null = not applicable)
   @Column({ nullable: true })
   floor: number;
 
@@ -82,11 +87,9 @@ export class Property {
   @Column({ type: 'simple-array', nullable: true })
   amenities: string[];
 
-  // Incremented on every public GET /properties/:id
   @Column({ default: 0 })
   viewCount: number;
 
-  // Incremented when a renter taps call/whatsapp on mobile
   @Column({ default: 0 })
   enquiryCount: number;
 
@@ -107,7 +110,6 @@ export class Property {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  // Soft delete — TypeORM automatically excludes rows where this is set
   @DeleteDateColumn()
   deletedAt: Date;
 }

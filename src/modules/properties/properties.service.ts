@@ -44,7 +44,8 @@ export class PropertiesService {
   async findAll(filters: FilterPropertyDto) {
     const {
       districtId, type, status, minPrice,
-      maxPrice, bedrooms, page = 1, limit = 10,
+      maxPrice, bedrooms, lat, lng, radius = 5,
+      page = 1, limit = 10,
     } = filters;
 
     const query = this.propertyRepository
@@ -60,9 +61,21 @@ export class PropertiesService {
     if (maxPrice) query.andWhere('property.price <= :maxPrice', { maxPrice });
     if (bedrooms) query.andWhere('property.bedrooms = :bedrooms', { bedrooms });
 
+    // Geospatial Radius Filtering (Haversine Formula)
+    if (lat && lng) {
+      // 6371 is the Earth radius in kilometers. (Use 3959 for miles).
+      const haversine = `( 6371 * acos( cos( radians(:lat) ) * cos( radians( property.latitude ) ) * cos( radians( property.longitude ) - radians(:lng) ) + sin( radians(:lat) ) * sin( radians( property.latitude ) ) ) )`;
+      
+      query.andWhere(`${haversine} <= :radius`, { lat, lng, radius });
+      // Order by closest properties first
+      query.orderBy(haversine, 'ASC');
+    } else {
+      // Default ordering if no location is provided
+      query.orderBy('property.createdAt', 'DESC');
+    }
+
     const total = await query.getCount();
     const data = await query
-      .orderBy('property.createdAt', 'DESC')
       .skip((page - 1) * limit)
       .take(limit)
       .getMany();
@@ -127,7 +140,6 @@ export class PropertiesService {
     return saved;
   }
 
-  // Soft delete — sets deletedAt, TypeORM excludes it from all future queries automatically
   async remove(id: string, performedBy: User): Promise<{ message: string }> {
     const property = await this.findOne(id);
     await this.propertyRepository.softRemove(property);
@@ -166,14 +178,12 @@ export class PropertiesService {
     return this.findOne(id);
   }
 
-  // Increments view count atomically — no race condition
   async incrementViewCount(id: string): Promise<void> {
     await this.propertyRepository.increment({ id }, 'viewCount', 1);
   }
 
-  // Called by mobile app when renter taps call/whatsapp button
   async recordEnquiry(id: string): Promise<{ message: string }> {
-    await this.findOne(id); // ensure it exists
+    await this.findOne(id); 
     await this.propertyRepository.increment({ id }, 'enquiryCount', 1);
     return { message: 'Enquiry recorded' };
   }
@@ -187,23 +197,19 @@ export class PropertiesService {
       where: { status: PropertyStatus.RENTED },
     });
 
-    // Properties added in the last 7 days
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
     const addedThisWeek = await this.propertyRepository
       .createQueryBuilder('property')
       .where('property.createdAt >= :sevenDaysAgo', { sevenDaysAgo })
       .getCount();
 
-    // Top 5 most viewed
     const topViewed = await this.propertyRepository.find({
       order: { viewCount: 'DESC' },
       take: 5,
       relations: ['district'],
     });
 
-    // Top 5 most enquired
     const topEnquired = await this.propertyRepository.find({
       order: { enquiryCount: 'DESC' },
       take: 5,

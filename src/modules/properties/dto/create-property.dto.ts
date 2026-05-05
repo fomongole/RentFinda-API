@@ -48,6 +48,18 @@ export class CreatePropertyDto {
   @IsOptional()
   address?: string;
 
+  @ApiPropertyOptional({ example: 0.3326 })
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: 32.5825 })
+  @IsNumber()
+  @IsOptional()
+  @Type(() => Number)
+  longitude?: number;
+
   @ApiPropertyOptional({ enum: FurnishingStatus })
   @IsEnum(FurnishingStatus)
   @IsOptional()
