@@ -4,4 +4,7 @@ export enum AuditEntity {
   USER = 'USER',
   IMAGE = 'IMAGE',
   AUTH = 'AUTH',
+  HOSTEL_ROOM = 'HOSTEL_ROOM',
+  BOOKING = 'BOOKING',
+  DISTRICT = 'DISTRICT',
 }

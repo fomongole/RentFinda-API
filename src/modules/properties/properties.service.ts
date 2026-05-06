@@ -12,6 +12,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
 import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 import { User } from '../users/entities/user.entity';
+import { stripInapplicableFields } from './utils/property-field-rules';
 
 @Injectable()
 export class PropertiesService {
@@ -27,7 +28,11 @@ export class PropertiesService {
     const landlord = await this.landlordsService.findOne(dto.landlordId);
     const district = await this.districtsService.findOne(dto.districtId);
 
-    const property = this.propertyRepository.create({ ...dto, landlord, district });
+    // Strip fields that are not applicable for this property type
+    // before persisting — ensures data integrity regardless of client input
+    const cleanedDto = stripInapplicableFields({ ...dto }, dto.type);
+
+    const property = this.propertyRepository.create({ ...cleanedDto, landlord, district });
     const saved = await this.propertyRepository.save(property);
 
     await this.auditLogsService.log({
@@ -61,16 +66,11 @@ export class PropertiesService {
     if (maxPrice) query.andWhere('property.price <= :maxPrice', { maxPrice });
     if (bedrooms) query.andWhere('property.bedrooms = :bedrooms', { bedrooms });
 
-    // Geospatial Radius Filtering (Haversine Formula)
     if (lat && lng) {
-      // 6371 is the Earth radius in kilometers. (Use 3959 for miles).
       const haversine = `( 6371 * acos( cos( radians(:lat) ) * cos( radians( property.latitude ) ) * cos( radians( property.longitude ) - radians(:lng) ) + sin( radians(:lat) ) * sin( radians( property.latitude ) ) ) )`;
-      
       query.andWhere(`${haversine} <= :radius`, { lat, lng, radius });
-      // Order by closest properties first
       query.orderBy(haversine, 'ASC');
     } else {
-      // Default ordering if no location is provided
       query.orderBy('property.createdAt', 'DESC');
     }
 
@@ -102,7 +102,11 @@ export class PropertiesService {
       property.district = await this.districtsService.findOne(dto.districtId);
     }
 
-    Object.assign(property, dto);
+    // Use the resolved type (updated or existing) for field stripping
+    const resolvedType = dto.type ?? property.type;
+    const cleanedDto = stripInapplicableFields({ ...dto }, resolvedType);
+
+    Object.assign(property, cleanedDto);
     const saved = await this.propertyRepository.save(property);
 
     await this.auditLogsService.log({
@@ -115,6 +119,15 @@ export class PropertiesService {
     });
 
     return saved;
+  }
+
+  /**
+   * Directly set the property status.
+   * Used internally by BookingsService for booking side-effects.
+   * Not exposed as a public endpoint — use toggleStatus for admin UI.
+   */
+  async setStatus(id: string, status: PropertyStatus): Promise<void> {
+    await this.propertyRepository.update(id, { status });
   }
 
   async toggleStatus(id: string, performedBy: User): Promise<Property> {
@@ -183,7 +196,7 @@ export class PropertiesService {
   }
 
   async recordEnquiry(id: string): Promise<{ message: string }> {
-    await this.findOne(id); 
+    await this.findOne(id);
     await this.propertyRepository.increment({ id }, 'enquiryCount', 1);
     return { message: 'Enquiry recorded' };
   }
@@ -220,13 +233,8 @@ export class PropertiesService {
       total > 0 ? Math.round((rented / total) * 100) : 0;
 
     return {
-      total,
-      available,
-      rented,
-      occupancyRate,
-      addedThisWeek,
-      topViewed,
-      topEnquired,
+      total, available, rented, occupancyRate,
+      addedThisWeek, topViewed, topEnquired,
     };
   }
 }

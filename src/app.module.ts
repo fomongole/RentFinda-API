@@ -11,6 +11,8 @@ import { DistrictsService } from './modules/districts/districts.service';
 import { PropertiesModule } from './modules/properties/properties.module';
 import { MediaModule } from './modules/media/media.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
+import { HostelRoomsModule } from './modules/hostel-rooms/hostel-rooms.module';
+import { BookingsModule } from './modules/bookings/bookings.module';
 
 @Module({
   imports: [
@@ -32,13 +34,15 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
         logging: process.env.NODE_ENV === 'development',
       }),
     }),
-    AuditLogsModule, // Must be first — it's global, all other modules depend on it
+    AuditLogsModule,    // @Global — must be first
     UsersModule,
     AuthModule,
     LandlordsModule,
     DistrictsModule,
     PropertiesModule,
     MediaModule,
+    HostelRoomsModule,  // depends on PropertiesModule
+    BookingsModule,     // depends on PropertiesModule + HostelRoomsModule
   ],
 })
 export class AppModule implements OnModuleInit {
