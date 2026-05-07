@@ -1,4 +1,3 @@
-// src/modules/hostel-rooms/entities/hostel-room.entity.ts
 import {
   Entity,
   PrimaryGeneratedColumn,
@@ -7,6 +6,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { HostelRoomType } from '../enums/hostel-room-type.enum';
 import { HostelRoomStatus } from '../enums/hostel-room-status.enum';
@@ -30,6 +30,7 @@ export class HostelRoom {
   @Column({ type: 'decimal', precision: 12, scale: 2 })
   price: number;
 
+  @Index()
   @Column({
     type: 'enum',
     enum: HostelRoomStatus,

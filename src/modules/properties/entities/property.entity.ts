@@ -8,6 +8,7 @@ import {
   ManyToOne,
   OneToMany,
   JoinColumn,
+  Index,
 } from 'typeorm';
 import { PropertyType } from '../enums/property-type.enum';
 import { PropertyStatus } from '../enums/property-status.enum';
@@ -28,6 +29,7 @@ export class Property {
   @Column({ type: 'text' })
   description: string;
 
+  @Index()
   @Column({ type: 'enum', enum: PropertyType })
   type: PropertyType;
 
@@ -53,6 +55,7 @@ export class Property {
   @Column({ type: 'decimal', precision: 11, scale: 8, nullable: true })
   longitude: number;
 
+  @Index()
   @Column({ type: 'enum', enum: PropertyStatus, default: PropertyStatus.AVAILABLE })
   status: PropertyStatus;
 
@@ -93,15 +96,15 @@ export class Property {
   @Column({ default: 0 })
   enquiryCount: number;
 
-  @ManyToOne(() => Landlord, { eager: true, nullable: false })
+  @ManyToOne(() => Landlord, { nullable: false })
   @JoinColumn({ name: 'landlord_id' })
   landlord: Landlord;
 
-  @ManyToOne(() => District, { eager: true, nullable: false })
+  @ManyToOne(() => District, { nullable: false })
   @JoinColumn({ name: 'district_id' })
   district: District;
 
-  @OneToMany(() => PropertyImage, (image) => image.property, { eager: true, cascade: true })
+  @OneToMany(() => PropertyImage, (image) => image.property, { cascade: true })
   images: PropertyImage[];
 
   @CreateDateColumn()

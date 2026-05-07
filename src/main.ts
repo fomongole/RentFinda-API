@@ -1,45 +1,80 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
+import helmet from 'helmet';
+import compression from 'compression';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
 
-  // 1. Global prefix for all routes
-  app.setGlobalPrefix('api/v1');
+  // ── Structured logger (replaces console.log everywhere) ──────────────────
+  app.useLogger(app.get(Logger));
 
-  // 2. Enable CORS (for admin web app and mobile app)
+  // ── Security headers ──────────────────────────────────────────────────────
+  app.use(helmet());
+
+  // ── Response compression (critical for mobile on slow networks) ───────────
+  app.use(compression());
+
+  // ── CORS ──────────────────────────────────────────────────────────────────
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',').map((o) =>
+    o.trim(),
+  ) ?? ['http://localhost:3000'];
+
   app.enableCors({
-    origin: '*', // tighten this in production
+    origin: allowedOrigins,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });
 
-  // 3. Global validation pipe — enforces all DTOs automatically
+  // ── Global prefix ─────────────────────────────────────────────────────────
+  app.setGlobalPrefix('api/v1');
+
+  // ── Global validation pipe ────────────────────────────────────────────────
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,        // strips unknown fields from requests
+      whitelist: true,
       forbidNonWhitelisted: true,
-      transform: true,        // auto-transforms payloads to DTO class instances
+      transform: true,
     }),
   );
 
-  // 4. Swagger documentation
-  const config = new DocumentBuilder()
-    .setTitle('RentFinda Uganda API')
-    .setDescription('Backend API for the RentFinda property rental platform')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
+  // ── Global exception filter ───────────────────────────────────────────────
+  app.useGlobalFilters(new AllExceptionsFilter());
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  // ── Graceful shutdown ─────────────────────────────────────────────────────
+  app.enableShutdownHooks();
 
-  const port = process.env.PORT || 3000;
+  // ── Swagger ───────────────────────────────────────────────────────────────
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('RentFinda Uganda API')
+      .setDescription('Backend API for the RentFinda property rental platform')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
+
+  const port = process.env.PORT ?? 3000;
   await app.listen(port);
-  console.log(`🚀 RentFinda API running on: http://localhost:${port}/api/v1`);
-  console.log(`📚 Swagger docs at:          http://localhost:${port}/api/docs`);
+
+  const logger = app.get(Logger);
+  logger.log(
+    `🚀 RentFinda API running on: http://localhost:${port}/api/v1`,
+    'Bootstrap',
+  );
+  if (process.env.NODE_ENV !== 'production') {
+    logger.log(
+      `📚 Swagger docs: http://localhost:${port}/api/docs`,
+      'Bootstrap',
+    );
+  }
 }
 
 bootstrap();

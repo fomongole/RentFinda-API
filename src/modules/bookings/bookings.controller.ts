@@ -20,6 +20,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { CancelByRenterDto } from './dto/cancel-by-renter.dto';
 
 @ApiTags('Bookings')
 @Controller('bookings')
@@ -43,12 +44,12 @@ export class BookingsController {
    * No auth (they don't have accounts). In future, add an OTP or phone verification.
    */
   @Patch(':id/cancel-by-renter')
-  @ApiOperation({ summary: 'Renter cancels their booking (public)' })
+  @ApiOperation({ summary: 'Renter cancels their booking using their cancellation token (public)' })
   cancelByRenter(
     @Param('id') id: string,
-    @Body() dto: CancelBookingDto,
+    @Body() dto: CancelByRenterDto,
   ) {
-    return this.bookingsService.cancel(id, dto, 'renter');
+    return this.bookingsService.cancelByRenter(id, dto);
   }
 
   // ── Admin ─────────────────────────────────────────────────────────────────

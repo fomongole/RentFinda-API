@@ -31,8 +31,8 @@ export class PropertiesService {
     // Strip fields that are not applicable for this property type
     // before persisting — ensures data integrity regardless of client input
     const cleanedDto = stripInapplicableFields({ ...dto }, dto.type);
-
     const property = this.propertyRepository.create({ ...cleanedDto, landlord, district });
+
     const saved = await this.propertyRepository.save(property);
 
     await this.auditLogsService.log({
@@ -88,6 +88,7 @@ export class PropertiesService {
       where: { id },
       relations: ['landlord', 'district', 'images'],
     });
+
     if (!property) throw new NotFoundException('Property not found');
     return property;
   }
@@ -212,6 +213,7 @@ export class PropertiesService {
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
     const addedThisWeek = await this.propertyRepository
       .createQueryBuilder('property')
       .where('property.createdAt >= :sevenDaysAgo', { sevenDaysAgo })

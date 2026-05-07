@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, UseGuards, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { LandlordsService } from './landlords.service';
 import { CreateLandlordDto } from './dto/create-landlord.dto';
@@ -9,6 +9,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+import { FilterLandlordsDto } from './dto/filter-landlords.dto';
 
 @ApiTags('Landlords')
 @ApiBearerAuth()
@@ -24,10 +25,11 @@ export class LandlordsController {
     return this.landlordsService.create(dto, user);
   }
 
+  
   @Get()
   @ApiOperation({ summary: 'Get all active landlords (admin only)' })
-  findAll() {
-    return this.landlordsService.findAll();
+  findAll(@Query() filters: FilterLandlordsDto) {
+    return this.landlordsService.findAll(filters);
   }
 
   @Get(':id')

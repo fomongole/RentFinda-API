@@ -1,6 +1,13 @@
 import {
-  Controller, Post, Delete, Patch, Param,
-  UseInterceptors, UploadedFiles, UseGuards,
+  Controller,
+  Post,
+  Delete,
+  Patch,
+  Param,
+  UseInterceptors,
+  UploadedFiles,
+  UseGuards,
+  BadRequestException,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiConsumes, ApiBody } from '@nestjs/swagger';
@@ -12,6 +19,23 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserRole } from '../users/enums/user-role.enum';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
+
+const imageFileFilter = (
+  _req: Express.Request,
+  file: Express.Multer.File,
+  callback: (error: Error | null, acceptFile: boolean) => void,
+) => {
+  const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowedMimeTypes.includes(file.mimetype)) {
+    return callback(
+      new BadRequestException(
+        `Invalid file type "${file.mimetype}". Only JPEG, PNG, and WebP images are allowed.`,
+      ),
+      false,
+    );
+  }
+  callback(null, true);
+};
 
 @ApiTags('Media')
 @ApiBearerAuth()
@@ -32,7 +56,13 @@ export class MediaController {
       },
     },
   })
-  @UseInterceptors(FilesInterceptor('files', 8, { storage: memoryStorage() }))
+  @UseInterceptors(
+    FilesInterceptor('files', 8, {
+      storage: memoryStorage(),
+      limits: { fileSize: 2 * 1024 * 1024 }, // 2MB per file
+      fileFilter: imageFileFilter,
+    }),
+  )
   uploadImages(
     @Param('propertyId') propertyId: string,
     @UploadedFiles() files: Express.Multer.File[],

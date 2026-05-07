@@ -8,6 +8,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
 import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 import { User } from '../users/entities/user.entity';
+import { FilterLandlordsDto } from './dto/filter-landlords.dto';
 
 @Injectable()
 export class LandlordsService {
@@ -32,11 +33,31 @@ export class LandlordsService {
     return saved;
   }
 
-  async findAll(): Promise<Landlord[]> {
-    return this.landlordRepository.find({
-      where: { isActive: true },
-      order: { createdAt: 'DESC' },
-    });
+  async findAll(filters: FilterLandlordsDto = {}) {
+    const { search, page = 1, limit = 20 } = filters;
+
+    const query = this.landlordRepository
+      .createQueryBuilder('landlord')
+      .where('landlord.isActive = :isActive', { isActive: true })
+      .orderBy('landlord.createdAt', 'DESC');
+
+    if (search) {
+      query.andWhere(
+        '(LOWER(landlord.name) LIKE :search OR landlord.phone LIKE :search)',
+        { search: `%${search.toLowerCase()}%` },
+      );
+    }
+
+    const total = await query.getCount();
+    const data = await query
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    return {
+      data,
+      meta: { total, page, limit, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   async findOne(id: string): Promise<Landlord> {

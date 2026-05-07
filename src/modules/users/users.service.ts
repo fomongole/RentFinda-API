@@ -67,8 +67,12 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userRepository.findOne({ where: { email } });
-  }
+  return this.userRepository
+    .createQueryBuilder('user')
+    .addSelect('user.password')   // explicitly re-select the hidden field
+    .where('user.email = :email', { email })
+    .getOne();
+}
 
   async findById(id: string): Promise<User> {
     const user = await this.userRepository.findOne({ where: { id } });
@@ -90,8 +94,19 @@ export class UsersService {
     return rest as Omit<User, 'password'>;
   }
 
-  async changePassword(userId: string, dto: ChangePasswordDto, performedBy: User): Promise<{ message: string }> {
-    const user = await this.findById(userId);
+  async changePassword(
+    userId: string,
+    dto: ChangePasswordDto,
+    performedBy: User,
+  ): Promise<{ message: string }> {
+    // Must explicitly fetch password for comparison
+    const user = await this.userRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.id = :id', { id: userId })
+      .getOne();
+
+    if (!user) throw new NotFoundException('User not found');
 
     const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
     if (!isMatch) throw new UnauthorizedException('Current password is incorrect');

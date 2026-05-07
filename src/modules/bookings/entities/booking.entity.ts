@@ -6,6 +6,7 @@ import {
   JoinColumn,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from 'typeorm';
 import { BookingStatus } from '../enums/booking-status.enum';
 import { Property } from '../../properties/entities/property.entity';
@@ -17,7 +18,6 @@ export class Booking {
   id: string;
 
   // ── Who is booking ────────────────────────────────────────────────────────
-
   @Column()
   renterName: string;
 
@@ -28,14 +28,13 @@ export class Booking {
   renterEmail: string | null;
 
   // ── What they are booking ─────────────────────────────────────────────────
-
   /**
    * The property being booked.
    * - For regular properties: this is the unit itself.
    * - For hostel bookings: this is the parent hostel.
-   *   In this case hostelRoom is also set.
+   * In this case hostelRoom is also set.
    */
-  @ManyToOne(() => Property, { nullable: false, eager: true })
+  @ManyToOne(() => Property, { nullable: false })
   @JoinColumn({ name: 'property_id' })
   property: Property;
 
@@ -43,12 +42,11 @@ export class Booking {
    * Only set for hostel room bookings.
    * When set, the booking is for a specific room within the hostel property.
    */
-  @ManyToOne(() => HostelRoom, { nullable: true, eager: true, onDelete: 'SET NULL' })
+  @ManyToOne(() => HostelRoom, { nullable: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'hostel_room_id' })
   hostelRoom: HostelRoom | null;
 
   // ── Booking dates ─────────────────────────────────────────────────────────
-
   @Column({ type: 'date' })
   moveInDate: Date;
 
@@ -57,7 +55,7 @@ export class Booking {
   moveOutDate: Date | null;
 
   // ── Status & meta ─────────────────────────────────────────────────────────
-
+  @Index()
   @Column({
     type: 'enum',
     enum: BookingStatus,
@@ -85,6 +83,13 @@ export class Booking {
 
   @Column({ type: 'text', nullable: true })
   cancellationReason: string | null;
+
+  /**
+   * Hashed token used to authenticate renter-initiated cancellations.
+   * The raw token is returned once on booking creation and never stored in plaintext.
+   */
+  @Column({ select: false, nullable: true })
+  cancellationTokenHash: string | null;
 
   @CreateDateColumn()
   createdAt: Date;
