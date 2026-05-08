@@ -1,8 +1,9 @@
 export enum PropertyType {
-  SINGLE_ROOM = 'SINGLE_ROOM',
-  DOUBLE_ROOM = 'DOUBLE_ROOM',
-  APARTMENT = 'APARTMENT',
-  HOUSE = 'HOUSE',
-  STUDIO = 'STUDIO',
-  HOSTEL = 'HOSTEL',
+  RESIDENTIAL_HOUSE = 'RESIDENTIAL_HOUSE', // single or double — see ResidentialSubtype
+  APARTMENT         = 'APARTMENT',
+  AIRBNB            = 'AIRBNB',
+  OFFICE_SPACE      = 'OFFICE_SPACE',
+  BUSINESS_SPACE    = 'BUSINESS_SPACE',
+  HOSTEL            = 'HOSTEL',            // sub-units managed via HostelRooms module
+  HOTEL_LODGE       = 'HOTEL_LODGE',       // charged daily or monthly
 }

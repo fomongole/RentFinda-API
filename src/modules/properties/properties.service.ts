@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Property } from './entities/property.entity';
@@ -6,32 +10,45 @@ import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { FilterPropertyDto } from './dto/filter-property.dto';
 import { PropertyStatus } from './enums/property-status.enum';
-import { LandlordsService } from '../landlords/landlords.service';
+import { ContactsService } from '../contacts/contacts.service';
 import { DistrictsService } from '../districts/districts.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
 import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 import { User } from '../users/entities/user.entity';
-import { stripInapplicableFields } from './utils/property-field-rules';
+import {
+  stripInapplicableFields,
+  validateBillingCycle,
+} from './utils/property-field-rules';
 
 @Injectable()
 export class PropertiesService {
   constructor(
     @InjectRepository(Property)
     private readonly propertyRepository: Repository<Property>,
-    private readonly landlordsService: LandlordsService,
+    private readonly contactsService: ContactsService,
     private readonly districtsService: DistrictsService,
     private readonly auditLogsService: AuditLogsService,
   ) {}
 
   async create(dto: CreatePropertyDto, performedBy: User): Promise<Property> {
-    const landlord = await this.landlordsService.findOne(dto.landlordId);
+    // Validate billing cycle against property type before anything else
+    const cycleError = validateBillingCycle(dto.type, dto.billingCycle);
+    if (cycleError) throw new BadRequestException(cycleError);
+
+    const contact = await this.contactsService.findOne(dto.contactId);
     const district = await this.districtsService.findOne(dto.districtId);
 
-    // Strip fields that are not applicable for this property type
-    // before persisting — ensures data integrity regardless of client input
-    const cleanedDto = stripInapplicableFields({ ...dto }, dto.type);
-    const property = this.propertyRepository.create({ ...cleanedDto, landlord, district });
+    const cleanedDto = stripInapplicableFields(
+      { ...dto } as Record<string, unknown>,
+      dto.type,
+    );
+
+    const property = this.propertyRepository.create({
+      ...cleanedDto,
+      contact,
+      district,
+    });
 
     const saved = await this.propertyRepository.save(property);
 
@@ -48,23 +65,25 @@ export class PropertiesService {
 
   async findAll(filters: FilterPropertyDto) {
     const {
-      districtId, type, status, minPrice,
-      maxPrice, bedrooms, lat, lng, radius = 5,
+      districtId, type, status, billingCycle,
+      minPrice, maxPrice, bedrooms,
+      lat, lng, radius = 5,
       page = 1, limit = 10,
     } = filters;
 
     const query = this.propertyRepository
       .createQueryBuilder('property')
-      .leftJoinAndSelect('property.landlord', 'landlord')
+      .leftJoinAndSelect('property.contact', 'contact')
       .leftJoinAndSelect('property.district', 'district')
       .leftJoinAndSelect('property.images', 'images');
 
-    if (districtId) query.andWhere('district.id = :districtId', { districtId });
-    if (type) query.andWhere('property.type = :type', { type });
-    if (status) query.andWhere('property.status = :status', { status });
-    if (minPrice) query.andWhere('property.price >= :minPrice', { minPrice });
-    if (maxPrice) query.andWhere('property.price <= :maxPrice', { maxPrice });
-    if (bedrooms) query.andWhere('property.bedrooms = :bedrooms', { bedrooms });
+    if (districtId)   query.andWhere('district.id = :districtId', { districtId });
+    if (type)         query.andWhere('property.type = :type', { type });
+    if (status)       query.andWhere('property.status = :status', { status });
+    if (billingCycle) query.andWhere('property.billingCycle = :billingCycle', { billingCycle });
+    if (minPrice)     query.andWhere('property.price >= :minPrice', { minPrice });
+    if (maxPrice)     query.andWhere('property.price <= :maxPrice', { maxPrice });
+    if (bedrooms)     query.andWhere('property.bedrooms = :bedrooms', { bedrooms });
 
     if (lat && lng) {
       const haversine = `( 6371 * acos( cos( radians(:lat) ) * cos( radians( property.latitude ) ) * cos( radians( property.longitude ) - radians(:lng) ) + sin( radians(:lat) ) * sin( radians( property.latitude ) ) ) )`;
@@ -86,7 +105,7 @@ export class PropertiesService {
   async findOne(id: string): Promise<Property> {
     const property = await this.propertyRepository.findOne({
       where: { id },
-      relations: ['landlord', 'district', 'images'],
+      relations: ['contact', 'district', 'images'],
     });
 
     if (!property) throw new NotFoundException('Property not found');
@@ -96,16 +115,24 @@ export class PropertiesService {
   async update(id: string, dto: UpdatePropertyDto, performedBy: User): Promise<Property> {
     const property = await this.findOne(id);
 
-    if (dto.landlordId) {
-      property.landlord = await this.landlordsService.findOne(dto.landlordId);
+    const resolvedType = dto.type ?? property.type;
+    const resolvedBillingCycle = dto.billingCycle ?? property.billingCycle ?? undefined;
+
+    // Validate billing cycle for the resolved type
+    const cycleError = validateBillingCycle(resolvedType, resolvedBillingCycle);
+    if (cycleError) throw new BadRequestException(cycleError);
+
+    if (dto.contactId) {
+      property.contact = await this.contactsService.findOne(dto.contactId);
     }
     if (dto.districtId) {
       property.district = await this.districtsService.findOne(dto.districtId);
     }
 
-    // Use the resolved type (updated or existing) for field stripping
-    const resolvedType = dto.type ?? property.type;
-    const cleanedDto = stripInapplicableFields({ ...dto }, resolvedType);
+    const cleanedDto = stripInapplicableFields(
+      { ...dto } as Record<string, unknown>,
+      resolvedType,
+    );
 
     Object.assign(property, cleanedDto);
     const saved = await this.propertyRepository.save(property);
@@ -124,8 +151,7 @@ export class PropertiesService {
 
   /**
    * Directly set the property status.
-   * Used internally by BookingsService for booking side-effects.
-   * Not exposed as a public endpoint — use toggleStatus for admin UI.
+   * Used internally by BookingsService. Not exposed as a public endpoint.
    */
   async setStatus(id: string, status: PropertyStatus): Promise<void> {
     await this.propertyRepository.update(id, { status });
@@ -173,7 +199,7 @@ export class PropertiesService {
     const property = await this.propertyRepository.findOne({
       where: { id },
       withDeleted: true,
-      relations: ['landlord', 'district', 'images'],
+      relations: ['contact', 'district', 'images'],
     });
 
     if (!property) throw new NotFoundException('Property not found');
@@ -231,12 +257,8 @@ export class PropertiesService {
       relations: ['district'],
     });
 
-    const occupancyRate =
-      total > 0 ? Math.round((rented / total) * 100) : 0;
+    const occupancyRate = total > 0 ? Math.round((rented / total) * 100) : 0;
 
-    return {
-      total, available, rented, occupancyRate,
-      addedThisWeek, topViewed, topEnquired,
-    };
+    return { total, available, rented, occupancyRate, addedThisWeek, topViewed, topEnquired };
   }
 }

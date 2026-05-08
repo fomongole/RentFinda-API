@@ -6,14 +6,15 @@ import {
 import { Type } from 'class-transformer';
 import { PropertyType } from '../enums/property-type.enum';
 import { FurnishingStatus } from '../enums/furnishing-status.enum';
-import { LeaseTerm } from '../enums/lease-term.enum';
+import { BillingCycle } from '../enums/billing-cycle.enum';
+import { ResidentialSubtype } from '../enums/residential-subtype.enum';
 
 export class CreatePropertyDto {
-  @ApiProperty({ example: 'Spacious 2BR Apartment in Kololo' })
+  @ApiProperty({ example: 'Spacious Double House in Ntinda' })
   @IsString()
   title: string;
 
-  @ApiProperty({ example: 'A modern apartment with great views...' })
+  @ApiProperty({ example: 'A well-maintained double house with a garden...' })
   @IsString()
   description: string;
 
@@ -21,11 +22,30 @@ export class CreatePropertyDto {
   @IsEnum(PropertyType)
   type: PropertyType;
 
+  /**
+   * Required when type = RESIDENTIAL_HOUSE.
+   * SINGLE = one bedroom, DOUBLE = two bedrooms.
+   */
+  @ApiPropertyOptional({ enum: ResidentialSubtype })
+  @IsEnum(ResidentialSubtype)
+  @IsOptional()
+  residentialSubtype?: ResidentialSubtype;
+
   @ApiProperty({ example: 800000 })
   @IsNumber()
   @Min(0)
   @Type(() => Number)
   price: number;
+
+  /**
+   * The period this price applies to.
+   * Required for all types except HOSTEL (billing cycle is set per room).
+   * Allowed values depend on property type — enforced server-side.
+   */
+  @ApiPropertyOptional({ enum: BillingCycle })
+  @IsEnum(BillingCycle)
+  @IsOptional()
+  billingCycle?: BillingCycle;
 
   @ApiPropertyOptional({ example: 2 })
   @IsNumber()
@@ -39,11 +59,11 @@ export class CreatePropertyDto {
   @Type(() => Number)
   bathrooms?: number;
 
-  @ApiProperty({ example: 'Kololo' })
+  @ApiProperty({ example: 'Ntinda' })
   @IsString()
   area: string;
 
-  @ApiPropertyOptional({ example: 'Plot 23, Acacia Avenue' })
+  @ApiPropertyOptional({ example: 'Plot 23, Ntinda Road' })
   @IsString()
   @IsOptional()
   address?: string;
@@ -64,11 +84,6 @@ export class CreatePropertyDto {
   @IsEnum(FurnishingStatus)
   @IsOptional()
   furnishing?: FurnishingStatus;
-
-  @ApiPropertyOptional({ enum: LeaseTerm })
-  @IsEnum(LeaseTerm)
-  @IsOptional()
-  leaseTerm?: LeaseTerm;
 
   @ApiPropertyOptional({ example: 500000 })
   @IsNumber()
@@ -93,15 +108,19 @@ export class CreatePropertyDto {
   @IsOptional()
   parkingAvailable?: boolean;
 
-  @ApiProperty({ example: 'uuid-of-landlord' })
+  /**
+   * The contact (owner or agent) managing this property.
+   * Previously called landlordId.
+   */
+  @ApiProperty({ example: 'uuid-of-contact' })
   @IsUUID()
-  landlordId: string;
+  contactId: string;
 
   @ApiProperty({ example: 'uuid-of-district' })
   @IsUUID()
   districtId: string;
 
-  @ApiPropertyOptional({ example: ['Water', 'Electricity', 'WiFi'] })
+  @ApiPropertyOptional({ example: ['Water', 'Electricity', 'WiFi', 'Security'] })
   @IsArray()
   @IsString({ each: true })
   @IsOptional()

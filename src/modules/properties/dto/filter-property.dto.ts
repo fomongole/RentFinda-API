@@ -3,6 +3,7 @@ import { IsEnum, IsNumber, IsOptional, IsUUID, Min } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PropertyType } from '../enums/property-type.enum';
 import { PropertyStatus } from '../enums/property-status.enum';
+import { BillingCycle } from '../enums/billing-cycle.enum';
 
 export class FilterPropertyDto {
   @ApiPropertyOptional()
@@ -19,6 +20,11 @@ export class FilterPropertyDto {
   @IsEnum(PropertyStatus)
   @IsOptional()
   status?: PropertyStatus;
+
+  @ApiPropertyOptional({ enum: BillingCycle })
+  @IsEnum(BillingCycle)
+  @IsOptional()
+  billingCycle?: BillingCycle;
 
   @ApiPropertyOptional()
   @IsNumber()
@@ -39,7 +45,8 @@ export class FilterPropertyDto {
   @Type(() => Number)
   bedrooms?: number;
 
-  // --- Geospatial Filtering for Mobile App ---
+  // ── Geospatial filtering (mobile app) ─────────────────────────────────────
+
   @ApiPropertyOptional({ description: 'User current latitude' })
   @IsNumber()
   @IsOptional()
@@ -52,7 +59,7 @@ export class FilterPropertyDto {
   @Type(() => Number)
   lng?: number;
 
-  @ApiPropertyOptional({ description: 'Search radius in kilometers', default: 5 })
+  @ApiPropertyOptional({ description: 'Search radius in kilometres', default: 5 })
   @IsNumber()
   @Min(1)
   @IsOptional()

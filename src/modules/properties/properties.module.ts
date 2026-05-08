@@ -4,13 +4,13 @@ import { Property } from './entities/property.entity';
 import { PropertyImage } from './entities/property-image.entity';
 import { PropertiesService } from './properties.service';
 import { PropertiesController } from './properties.controller';
-import { LandlordsModule } from '../landlords/landlords.module';
 import { DistrictsModule } from '../districts/districts.module';
+import { ContactsModule } from '../contacts/contacts.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Property, PropertyImage]),
-    LandlordsModule,
+    ContactsModule,
     DistrictsModule,
   ],
   providers: [PropertiesService],

@@ -1,6 +1,0 @@
-export enum LeaseTerm {
-  MONTHLY = 'MONTHLY',
-  QUARTERLY = 'QUARTERLY',
-  BIANNUAL = 'BIANNUAL',
-  ANNUAL = 'ANNUAL',
-}

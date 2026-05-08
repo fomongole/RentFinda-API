@@ -1,7 +1,8 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsString, IsOptional, MinLength } from 'class-validator';
+import { IsEmail, IsEnum, IsString, IsOptional, MinLength } from 'class-validator';
+import { ContactRole } from '../enums/contact-role.enum';
 
-export class CreateLandlordDto {
+export class CreateContactDto {
   @ApiProperty({ example: 'Joseph Kato' })
   @IsString()
   @MinLength(2)
@@ -10,6 +11,13 @@ export class CreateLandlordDto {
   @ApiProperty({ example: '+256701234567' })
   @IsString()
   phone: string;
+
+  @ApiProperty({
+    enum: ContactRole,
+    description: 'OWNER = property owner | AGENT = broker or property manager',
+  })
+  @IsEnum(ContactRole)
+  role: ContactRole;
 
   @ApiPropertyOptional({ example: 'joseph.kato@gmail.com' })
   @IsEmail()

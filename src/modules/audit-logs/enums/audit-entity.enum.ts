@@ -1,10 +1,11 @@
 export enum AuditEntity {
-  PROPERTY = 'PROPERTY',
-  LANDLORD = 'LANDLORD',
-  USER = 'USER',
-  IMAGE = 'IMAGE',
-  AUTH = 'AUTH',
+  PROPERTY    = 'PROPERTY',
+  CONTACT     = 'CONTACT',
+  USER        = 'USER',
+  IMAGE       = 'IMAGE',
+  AUTH        = 'AUTH',
   HOSTEL_ROOM = 'HOSTEL_ROOM',
-  BOOKING = 'BOOKING',
-  DISTRICT = 'DISTRICT',
+  BOOKING     = 'BOOKING',
+  DISTRICT    = 'DISTRICT',
+  COMPLAINT   = 'COMPLAINT',
 }

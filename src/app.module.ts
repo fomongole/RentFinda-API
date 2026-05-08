@@ -9,7 +9,7 @@ import jwtConfig from './config/jwt.config';
 
 import { UsersModule } from './modules/users/users.module';
 import { AuthModule } from './modules/auth/auth.module';
-import { LandlordsModule } from './modules/landlords/landlords.module';
+import { ContactsModule } from './modules/contacts/contacts.module';
 import { DistrictsModule } from './modules/districts/districts.module';
 import { DistrictsService } from './modules/districts/districts.service';
 import { PropertiesModule } from './modules/properties/properties.module';
@@ -17,6 +17,7 @@ import { MediaModule } from './modules/media/media.module';
 import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { HostelRoomsModule } from './modules/hostel-rooms/hostel-rooms.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
+import { ComplaintsModule } from './modules/complaints/complaints.module';
 
 import { envValidationSchema } from './config/env.validation';
 
@@ -85,9 +86,9 @@ import { HealthModule } from './modules/health/health.module';
             ? { rejectUnauthorized: false }
             : false,
         extra: {
-          max: 20,                   // max pool connections
-          idleTimeoutMillis: 30_000, // close idle connections after 30s
-          connectionTimeoutMillis: 5_000, // fail fast if DB is unreachable
+          max: 20,
+          idleTimeoutMillis: 30_000,
+          connectionTimeoutMillis: 5_000,
         },
       }),
     }),
@@ -96,12 +97,13 @@ import { HealthModule } from './modules/health/health.module';
     AuditLogsModule,
     UsersModule,
     AuthModule,
-    LandlordsModule,
+    ContactsModule,
     DistrictsModule,
     PropertiesModule,
     MediaModule,
     HostelRoomsModule,
     BookingsModule,
+    ComplaintsModule,
   ],
 
   providers: [
@@ -112,9 +114,7 @@ import { HealthModule } from './modules/health/health.module';
   ],
 })
 export class AppModule implements OnModuleInit {
-  constructor(
-    private readonly districtsService: DistrictsService,
-  ) {}
+  constructor(private readonly districtsService: DistrictsService) {}
 
   async onModuleInit() {
     await this.districtsService.seed();

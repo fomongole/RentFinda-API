@@ -6,16 +6,17 @@ import {
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { HostelRoom } from './entities/hostel-room.entity';
-import { CreateHostelRoomDto } from './dto/create-hostel-room.dto';
+import { CreateHostelRoomDto, HOSTEL_ROOM_BILLING_CYCLES } from './dto/create-hostel-room.dto';
+import { UpdateHostelRoomDto } from './dto/update-hostel-room.dto';
 import { UpdateRoomStatusDto } from './dto/update-room-status.dto';
 import { HostelRoomStatus } from './enums/hostel-room-status.enum';
+import { BillingCycle } from '../properties/enums/billing-cycle.enum';
 import { PropertiesService } from '../properties/properties.service';
 import { PropertyType } from '../properties/enums/property-type.enum';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
 import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 import { User } from '../users/entities/user.entity';
-import { UpdateHostelRoomDto } from './dto/update-hostel-room.dto';
 
 @Injectable()
 export class HostelRoomsService {
@@ -25,6 +26,15 @@ export class HostelRoomsService {
     private readonly propertiesService: PropertiesService,
     private readonly auditLogsService: AuditLogsService,
   ) {}
+
+  private validateHostelBillingCycle(billingCycle: BillingCycle): void {
+    if (!(HOSTEL_ROOM_BILLING_CYCLES as readonly BillingCycle[]).includes(billingCycle)) {
+      throw new BadRequestException(
+        `billingCycle "${billingCycle}" is not allowed for hostel rooms. ` +
+        `Allowed values: ${HOSTEL_ROOM_BILLING_CYCLES.join(', ')}.`,
+      );
+    }
+  }
 
   async create(
     propertyId: string,
@@ -39,7 +49,9 @@ export class HostelRoomsService {
       );
     }
 
-    // Enforce uniqueness of roomNumber within a hostel at the service layer
+    this.validateHostelBillingCycle(dto.billingCycle);
+
+    // Enforce room number uniqueness within the hostel
     const existing = await this.roomRepository.findOne({
       where: { roomNumber: dto.roomNumber, property: { id: propertyId } },
     });
@@ -58,13 +70,13 @@ export class HostelRoomsService {
       entityId: saved.id,
       entityTitle: `${property.title} — Room ${saved.roomNumber}`,
       performedBy,
+      metadata: { billingCycle: saved.billingCycle, price: saved.price },
     });
 
     return saved;
   }
 
   async findAllForProperty(propertyId: string): Promise<HostelRoom[]> {
-    // Validate the property exists
     await this.propertiesService.findOne(propertyId);
 
     return this.roomRepository.find({
@@ -89,7 +101,11 @@ export class HostelRoomsService {
   ): Promise<HostelRoom> {
     const room = await this.findOne(id);
 
-    // If changing roomNumber, re-check uniqueness within the hostel
+    if (dto.billingCycle) {
+      this.validateHostelBillingCycle(dto.billingCycle);
+    }
+
+    // Re-check uniqueness if roomNumber is changing
     if (dto.roomNumber && dto.roomNumber !== room.roomNumber) {
       const existing = await this.roomRepository.findOne({
         where: {
@@ -163,7 +179,7 @@ export class HostelRoomsService {
     return { message: 'Room deleted successfully' };
   }
 
-  /** Called by BookingsService — not exposed as a public endpoint */
+  /** Called internally by BookingsService — not exposed as a public endpoint */
   async setStatus(id: string, status: HostelRoomStatus): Promise<void> {
     await this.roomRepository.update(id, { status });
   }
@@ -171,20 +187,11 @@ export class HostelRoomsService {
   async getRoomStats(propertyId: string) {
     const rooms = await this.findAllForProperty(propertyId);
     const total = rooms.length;
-    const available = rooms.filter(
-      (r) => r.status === HostelRoomStatus.AVAILABLE,
-    ).length;
-    const occupied = rooms.filter(
-      (r) => r.status === HostelRoomStatus.OCCUPIED,
-    ).length;
-    const reserved = rooms.filter(
-      (r) => r.status === HostelRoomStatus.RESERVED,
-    ).length;
-    const maintenance = rooms.filter(
-      (r) => r.status === HostelRoomStatus.MAINTENANCE,
-    ).length;
-    const occupancyRate =
-      total > 0 ? Math.round(((occupied + reserved) / total) * 100) : 0;
+    const available   = rooms.filter(r => r.status === HostelRoomStatus.AVAILABLE).length;
+    const occupied    = rooms.filter(r => r.status === HostelRoomStatus.OCCUPIED).length;
+    const reserved    = rooms.filter(r => r.status === HostelRoomStatus.RESERVED).length;
+    const maintenance = rooms.filter(r => r.status === HostelRoomStatus.MAINTENANCE).length;
+    const occupancyRate = total > 0 ? Math.round(((occupied + reserved) / total) * 100) : 0;
 
     return { total, available, occupied, reserved, maintenance, occupancyRate };
   }
