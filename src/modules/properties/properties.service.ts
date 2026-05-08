@@ -228,7 +228,7 @@ export class PropertiesService {
     return { message: 'Enquiry recorded' };
   }
 
-  async getStats() {
+async getStats() {
     const total = await this.propertyRepository.count();
     const available = await this.propertyRepository.count({
       where: { status: PropertyStatus.AVAILABLE },
@@ -259,6 +259,20 @@ export class PropertiesService {
 
     const occupancyRate = total > 0 ? Math.round((rented / total) * 100) : 0;
 
-    return { total, available, rented, occupancyRate, addedThisWeek, topViewed, topEnquired };
+    // Breakdown by property type
+    const byTypeRaw: { type: string; count: string }[] =
+      await this.propertyRepository
+        .createQueryBuilder('property')
+        .select('property.type', 'type')
+        .addSelect('COUNT(*)', 'count')
+        .groupBy('property.type')
+        .getRawMany();
+
+    const byType: Record<string, number> = {};
+    for (const row of byTypeRaw) {
+      byType[row.type] = Number(row.count);
+    }
+
+    return { total, available, rented, occupancyRate, addedThisWeek, topViewed, topEnquired, byType };
   }
 }
