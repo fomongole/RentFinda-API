@@ -18,8 +18,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: { sub: string; email: string; role: string }) {
-    const user = await this.usersService.findById(payload.sub);
-    if (!user) throw new UnauthorizedException();
-    return user;
+    try {
+      const user = await this.usersService.findById(payload.sub);
+      if (!user) throw new UnauthorizedException('Session expired. Please log in again.');
+      if (!user.isActive) throw new UnauthorizedException('Account is deactivated.');
+      return user;
+    } catch {
+      throw new UnauthorizedException('Session expired. Please log in again.');
+    }
   }
 }
