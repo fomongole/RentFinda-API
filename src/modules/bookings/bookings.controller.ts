@@ -28,56 +28,56 @@ import { SyncBookingsDto } from './dto/sync-bookings.dto';
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
-  // ── Public (mobile app) ───────────────────────────────────────────────────
-
-  /**
-   * Called by the Flutter mobile app when a renter submits a booking request.
-   * No authentication required.
-   */
+  // ── PUBLIC ─────────────────────────────────────────────────────────────
   @Post()
-  @ApiOperation({ summary: 'Submit a booking request (public — mobile app)' })
   create(@Body() dto: CreateBookingDto) {
     return this.bookingsService.create(dto);
   }
 
-  /**
-   * Renter cancels their own booking — identified by bookingId.
-   * No auth (they don't have accounts). In future, add an OTP or phone verification.
-   */
   @Patch(':id/cancel-by-renter')
-  @ApiOperation({ summary: 'Renter cancels their booking using their cancellation token (public)' })
-  cancelByRenter(
-    @Param('id') id: string,
-    @Body() dto: CancelByRenterDto,
-  ) {
+  cancelByRenter(@Param('id') id: string, @Body() dto: CancelByRenterDto) {
     return this.bookingsService.cancelByRenter(id, dto);
   }
 
-  // ── Admin ─────────────────────────────────────────────────────────────────
-
-  @Get()
+  @Get('me')                           
   @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'List all bookings with optional filters (admin only)' })
-  findAll(@Query() filters: FilterBookingsDto) {
-    return this.bookingsService.findAll(filters);
+  @UseGuards(JwtAuthGuard)
+  findMyBookings(@CurrentUser() user: User) {
+    return this.bookingsService.findForUser(user.id);
+  }
+
+  @Post('sync')                        
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  sync(@CurrentUser() user: User, @Body() dto: SyncBookingsDto) {
+    return this.bookingsService.syncGuestBookings(user.id, dto);
+  }
+
+  @Patch(':id/cancel-mine')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  cancelMine(@Param('id') id: string, @Body() dto: CancelBookingDto, @CurrentUser() user: User) {
+    return this.bookingsService.cancelMine(id, dto.reason, user.id);
   }
 
   @Get('stats')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Booking statistics (admin only)' })
-  getStats() {
-    return this.bookingsService.getStats();
-  }
+  getStats() { return this.bookingsService.getStats(); }
 
-  @Get(':id')
+  @Get()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Get a single booking (admin only)' })
+  findAll(@Query() filters: FilterBookingsDto) {
+    return this.bookingsService.findAll(filters);
+  }
+
+  @Get(':id')                          
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
   findOne(@Param('id') id: string) {
     return this.bookingsService.findOne(id);
   }
@@ -86,12 +86,7 @@ export class BookingsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Confirm a pending booking (admin only)' })
-  confirm(
-    @Param('id') id: string,
-    @Body() dto: ConfirmBookingDto,
-    @CurrentUser() user: User,
-  ) {
+  confirm(@Param('id') id: string, @Body() dto: ConfirmBookingDto, @CurrentUser() user: User) {
     return this.bookingsService.confirm(id, dto, user);
   }
 
@@ -99,12 +94,7 @@ export class BookingsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Admin cancels a booking (admin only)' })
-  cancel(
-    @Param('id') id: string,
-    @Body() dto: CancelBookingDto,
-    @CurrentUser() user: User,
-  ) {
+  cancel(@Param('id') id: string, @Body() dto: CancelBookingDto, @CurrentUser() user: User) {
     return this.bookingsService.cancel(id, dto, 'admin', user);
   }
 
@@ -112,37 +102,7 @@ export class BookingsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  @ApiOperation({ summary: 'Mark a booking as completed (renter moved out) (admin only)' })
   complete(@Param('id') id: string, @CurrentUser() user: User) {
     return this.bookingsService.complete(id, user);
-  }
-
-
-  @Get('me')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get all my bookings (authenticated renter)' })
-  findMyBookings(@CurrentUser() user: User) {
-    return this.bookingsService.findForUser(user.id);
-  }
-
-  @Post('sync')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Link guest bookings to account using cancellation tokens' })
-  sync(@CurrentUser() user: User, @Body() dto: SyncBookingsDto) {
-    return this.bookingsService.syncGuestBookings(user.id, dto);
-  }
-
-  @Patch(':id/cancel-mine')
-  @ApiBearerAuth()
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Authenticated renter cancels their own booking' })
-  cancelMine(
-    @Param('id') id: string,
-    @Body() dto: CancelBookingDto,
-    @CurrentUser() user: User,
-  ) {
-    return this.bookingsService.cancelMine(id, dto.reason, user.id);
   }
 }
