@@ -13,6 +13,7 @@ import { PropertyStatus } from './enums/property-status.enum';
 import { ContactsService } from '../contacts/contacts.service';
 import { DistrictsService } from '../districts/districts.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
 import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 import { User } from '../users/entities/user.entity';
@@ -29,6 +30,7 @@ export class PropertiesService {
     private readonly contactsService: ContactsService,
     private readonly districtsService: DistrictsService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(dto: CreatePropertyDto, performedBy: User): Promise<Property> {
@@ -58,6 +60,15 @@ export class PropertiesService {
       entityId: saved.id,
       entityTitle: saved.title,
       performedBy,
+    });
+
+    // Broadcast to all active renters — fire and forget
+    void this.notificationsService.sendNewPropertyBroadcast({
+      propertyId: saved.id,
+      propertyTitle: saved.title,
+      type: saved.type,
+      price: Number(saved.price),
+      area: saved.area,
     });
 
     return saved;
@@ -228,7 +239,7 @@ export class PropertiesService {
     return { message: 'Enquiry recorded' };
   }
 
-async getStats() {
+  async getStats() {
     const total = await this.propertyRepository.count();
     const available = await this.propertyRepository.count({
       where: { status: PropertyStatus.AVAILABLE },

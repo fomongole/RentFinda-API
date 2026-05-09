@@ -47,4 +47,21 @@ export class CreateComplaintDto {
   @IsUUID()
   @IsOptional()
   propertyId?: string;
+
+  /**
+   * Optional NyumbaLink user account ID.
+   *
+   * If the renter is logged in to the mobile app, the app should include
+   * their userId here so that admin status updates (IN_PROGRESS, RESOLVED, CLOSED)
+   * are delivered as in-app notifications to their account.
+   */
+  @ApiPropertyOptional({
+    example: 'uuid-of-renter-user',
+    description:
+      'UUID of the logged-in renter\'s user account. ' +
+      'Pass when authenticated so status-update notifications are delivered in-app.',
+  })
+  @IsUUID()
+  @IsOptional()
+  userId?: string;
 }

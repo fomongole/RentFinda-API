@@ -7,6 +7,7 @@ import { FilterComplaintsDto } from './dto/filter-complaints.dto';
 import { UpdateComplaintStatusDto } from './dto/update-complaint-status.dto';
 import { ComplaintStatus } from './enums/complaint-status.enum';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
 import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 import { User } from '../users/entities/user.entity';
@@ -20,11 +21,13 @@ export class ComplaintsService {
     private readonly complaintRepository: Repository<Complaint>,
     private readonly propertiesService: PropertiesService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
    * Called from the mobile app — no authentication required.
    * Renters submit complaints anonymously (contact details optional but encouraged).
+   * If the renter is logged in, they can pass their userId for notification delivery.
    */
   async create(dto: CreateComplaintDto): Promise<Complaint> {
     let property: Property | null = null;
@@ -38,6 +41,7 @@ export class ComplaintsService {
       submitterName: dto.submitterName,
       submitterPhone: dto.submitterPhone,
       submitterEmail: dto.submitterEmail ?? null,
+      userId: dto.userId ?? null,
       category: dto.category,
       description: dto.description,
       property,
@@ -83,6 +87,7 @@ export class ComplaintsService {
    * Admin updates the status and optionally adds internal notes.
    * Automatically records resolvedAt / resolvedByName when status moves
    * to RESOLVED or CLOSED.
+   * Sends a COMPLAINT_UPDATED notification to the renter if they linked their account.
    */
   async updateStatus(
     id: string,
@@ -127,6 +132,15 @@ export class ComplaintsService {
       performedBy,
       metadata: { from: previousStatus, to: dto.status },
     });
+
+    // Notify the renter if they linked their account when submitting
+    if (saved.userId) {
+      void this.notificationsService.sendComplaintUpdated(saved.userId, {
+        complaintId: saved.id,
+        newStatus: dto.status,
+        category: saved.category,
+      });
+    }
 
     return saved;
   }

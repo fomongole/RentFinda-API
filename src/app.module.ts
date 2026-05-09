@@ -18,6 +18,7 @@ import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
 import { HostelRoomsModule } from './modules/hostel-rooms/hostel-rooms.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { ComplaintsModule } from './modules/complaints/complaints.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 import { envValidationSchema } from './config/env.validation';
 
@@ -79,8 +80,8 @@ import { HealthModule } from './modules/health/health.module';
         password: config.get('database.password'),
         database: config.get('database.name'),
         entities: [__dirname + '/**/*.entity{.ts,.js}'],
-        synchronize: config.get('NODE_ENV') !== 'production',
-        // synchronize: true,
+        // synchronize: config.get('NODE_ENV') !== 'production',
+        synchronize: true,
         logging: config.get('NODE_ENV') === 'development',
         ssl:
           config.get('NODE_ENV') === 'production'
@@ -95,7 +96,12 @@ import { HealthModule } from './modules/health/health.module';
     }),
 
     HealthModule,
+
+    // ── Global modules (services available everywhere via DI) ─────────────
     AuditLogsModule,
+    NotificationsModule, // @Global — NotificationsService injectable in all modules
+
+    // ── Feature modules ───────────────────────────────────────────────────
     UsersModule,
     AuthModule,
     ContactsModule,

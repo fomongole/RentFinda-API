@@ -16,10 +16,9 @@ export class CreateBookingDto {
 
   @ApiProperty({ example: '+256701234567' })
   @IsString()
-  @MinLength(10)
   renterPhone: string;
 
-  @ApiPropertyOptional({ example: 'sarah.nakato@gmail.com' })
+  @ApiPropertyOptional({ example: 'sarah@gmail.com' })
   @IsEmail()
   @IsOptional()
   renterEmail?: string;
@@ -28,28 +27,46 @@ export class CreateBookingDto {
   @IsUUID()
   propertyId: string;
 
-  /**
-   * Only required for hostel bookings.
-   * When provided, this booking is for a specific hostel room.
-   */
-  @ApiPropertyOptional({ example: 'uuid-of-hostel-room' })
+  @ApiPropertyOptional({
+    example: 'uuid-of-hostel-room',
+    description: 'Required when booking a HOSTEL property — identifies the specific room.',
+  })
   @IsUUID()
   @IsOptional()
   hostelRoomId?: string;
 
-  @ApiProperty({ example: '2025-09-01' })
+  @ApiProperty({ example: '2026-06-01', description: 'ISO date string (YYYY-MM-DD)' })
   @IsDateString()
   moveInDate: string;
 
-  @ApiPropertyOptional({ example: '2026-08-31' })
+  @ApiPropertyOptional({ example: '2026-12-31', description: 'ISO date string (YYYY-MM-DD). Omit for open-ended agreements.' })
   @IsDateString()
   @IsOptional()
   moveOutDate?: string;
 
-  @ApiPropertyOptional({
-    example: 'I am a final year student at Makerere. Can I view the room first?',
-  })
+  @ApiPropertyOptional({ example: 'I need a pet-friendly unit.' })
   @IsString()
   @IsOptional()
   notes?: string;
+
+  /**
+   * Optional NyumbaLink user account ID.
+   *
+   * If the renter is logged in to the mobile app when submitting a booking,
+   * the app should include their userId here. This enables the platform to send
+   * in-app notifications (confirmed, cancelled, completed) to their account.
+   *
+   * Omit for anonymous bookings — the cancellationToken serves as proof of
+   * ownership in that case.
+   */
+  @ApiPropertyOptional({
+    example: 'uuid-of-renter-user',
+    description:
+      'UUID of the logged-in renter\'s user account. ' +
+      'Pass this when the user is authenticated in the mobile app so lifecycle ' +
+      'notifications are delivered to their notification inbox.',
+  })
+  @IsUUID()
+  @IsOptional()
+  userId?: string;
 }

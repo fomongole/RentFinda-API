@@ -27,12 +27,26 @@ export class Booking {
   @Column({ type: 'varchar', nullable: true })
   renterEmail: string | null;
 
+  /**
+   * Optional link to a NyumbaLink user account.
+   *
+   * Renters do not need an account to book — bookings are anonymous by default.
+   * If the mobile app user IS logged in when they submit a booking, the app
+   * should include their userId here so that lifecycle notifications
+   * (confirmed, cancelled, completed) can be delivered to their account.
+   *
+   * Not a foreign key relation — stored as a plain UUID column to keep the
+   * booking flow fully independent of the auth system.
+   */
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  userId: string | null;
+
   // ── What they are booking ─────────────────────────────────────────────────
   /**
    * The property being booked.
    * - For regular properties: this is the unit itself.
-   * - For hostel bookings: this is the parent hostel.
-   * In this case hostelRoom is also set.
+   * - For hostel bookings: this is the parent hostel; hostelRoom is also set.
    */
   @ManyToOne(() => Property, { nullable: false })
   @JoinColumn({ name: 'property_id' })

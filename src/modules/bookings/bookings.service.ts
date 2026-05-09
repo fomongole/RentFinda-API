@@ -21,6 +21,7 @@ import { HostelRoomStatus } from '../hostel-rooms/enums/hostel-room-status.enum'
 import { PropertyStatus } from '../properties/enums/property-status.enum';
 import { PropertyType } from '../properties/enums/property-type.enum';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
 import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 import { User } from '../users/entities/user.entity';
@@ -35,6 +36,7 @@ export class BookingsService {
     private readonly propertiesService: PropertiesService,
     private readonly hostelRoomsService: HostelRoomsService,
     private readonly auditLogsService: AuditLogsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -45,6 +47,7 @@ export class BookingsService {
    *
    * Side-effects:
    *   - Hostel room booking → room.status = RESERVED
+   *   - If userId supplied → BOOKING_CREATED notification (not yet — wait for admin confirm)
    */
   async create(dto: CreateBookingDto): Promise<BookingCreateResponse> {
     const property = await this.propertiesService.findOne(dto.propertyId);
@@ -91,6 +94,7 @@ export class BookingsService {
       renterName: dto.renterName,
       renterPhone: dto.renterPhone,
       renterEmail: dto.renterEmail ?? null,
+      userId: dto.userId ?? null,
       moveInDate: dto.moveInDate as unknown as Date,
       moveOutDate: (dto.moveOutDate ?? null) as unknown as Date | null,
       notes: dto.notes ?? null,
@@ -153,6 +157,7 @@ export class BookingsService {
    * Side-effects:
    *   - Hostel room → OCCUPIED
    *   - Regular property → RENTED
+   *   - Notification → BOOKING_CONFIRMED (if booking has a linked userId)
    */
   async confirm(
     id: string,
@@ -194,6 +199,16 @@ export class BookingsService {
       metadata: { from: BookingStatus.PENDING, to: BookingStatus.CONFIRMED },
     });
 
+    // Notify the renter if they linked their account to this booking
+    if (saved.userId) {
+      void this.notificationsService.sendBookingConfirmed(saved.userId, {
+        bookingId: saved.id,
+        propertyId: saved.property.id,
+        propertyTitle: saved.property.title,
+        moveInDate: saved.moveInDate?.toString() ?? '',
+      });
+    }
+
     return saved;
   }
 
@@ -202,6 +217,7 @@ export class BookingsService {
    * Side-effects:
    *   - Reverts hostel room → AVAILABLE
    *   - Reverts regular property → AVAILABLE (only if previously CONFIRMED)
+   *   - Notification → BOOKING_CANCELLED (admin cancellation, if booking has userId)
    */
   async cancel(
     id: string,
@@ -256,6 +272,17 @@ export class BookingsService {
       });
     }
 
+    // Only notify if an admin cancelled — renter-initiated cancellations are
+    // self-explanatory; no need to tell them what they just did.
+    if (cancelledBy === 'admin' && saved.userId) {
+      void this.notificationsService.sendBookingCancelledByAdmin(saved.userId, {
+        bookingId: saved.id,
+        propertyId: saved.property.id,
+        propertyTitle: saved.property.title,
+        reason: dto.reason,
+      });
+    }
+
     return saved;
   }
 
@@ -305,6 +332,7 @@ export class BookingsService {
   /**
    * Admin marks a booking as completed (renter has moved out).
    * Frees the property or room back to AVAILABLE.
+   * Notification → BOOKING_COMPLETED (if booking has userId)
    */
   async complete(id: string, performedBy: User): Promise<Booking> {
     const booking = await this.findOne(id);
@@ -338,6 +366,14 @@ export class BookingsService {
       performedBy,
       metadata: { from: BookingStatus.CONFIRMED, to: BookingStatus.COMPLETED },
     });
+
+    if (saved.userId) {
+      void this.notificationsService.sendBookingCompleted(saved.userId, {
+        bookingId: saved.id,
+        propertyId: saved.property.id,
+        propertyTitle: saved.property.title,
+      });
+    }
 
     return saved;
   }

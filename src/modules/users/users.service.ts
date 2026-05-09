@@ -2,7 +2,6 @@ import {
   Injectable,
   ConflictException,
   NotFoundException,
-  UnauthorizedException,
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -14,6 +13,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { CreateAdminDto } from './dto/create-admin.dto';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { NotificationsService } from '../notifications/notifications.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
 import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 
@@ -23,6 +23,7 @@ export class UsersService {
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
     private readonly auditLogsService: AuditLogsService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(
@@ -36,7 +37,14 @@ export class UsersService {
 
     const hashed = await bcrypt.hash(password, 10);
     const user = this.userRepository.create({ name, email, password: hashed, role });
-    return this.userRepository.save(user);
+    const saved = await this.userRepository.save(user);
+
+    // Welcome notification — only for RENTER accounts (admins don't use the mobile app)
+    if (saved.role === UserRole.RENTER) {
+      void this.notificationsService.sendWelcome(saved.id, saved.name);
+    }
+
+    return saved;
   }
 
   async createAdmin(dto: CreateAdminDto, performedBy: User): Promise<User> {
@@ -131,6 +139,9 @@ export class UsersService {
       performedBy,
     });
 
+    // Security notification — alert the user so they can spot an unauthorised change
+    void this.notificationsService.sendPasswordChanged(userId);
+
     return { message: 'Password changed successfully' };
   }
 
@@ -152,6 +163,13 @@ export class UsersService {
       performedBy,
       metadata: { isActive: saved.isActive },
     });
+
+    // Notify the affected user about their account status change
+    if (saved.isActive) {
+      void this.notificationsService.sendAccountActivated(saved.id);
+    } else {
+      void this.notificationsService.sendAccountDeactivated(saved.id);
+    }
 
     const { password: _p, ...rest } = saved;
     return rest as Omit<User, 'password'>;

@@ -35,6 +35,17 @@ export class Complaint {
   @Column({ type: 'varchar', nullable: true })
   submitterEmail: string | null;
 
+  /**
+   * Optional link to a NyumbaLink user account.
+   *
+   * If the renter is logged in to the mobile app when they submit a complaint,
+   * the app should pass their userId so that admin status updates can be
+   * delivered as in-app notifications to their account.
+   */
+  @Index()
+  @Column({ type: 'uuid', nullable: true })
+  userId: string | null;
+
   // ── Complaint details ─────────────────────────────────────────────────────
   @Index()
   @Column({ type: 'enum', enum: ComplaintCategory, default: ComplaintCategory.GENERAL })
