@@ -30,7 +30,7 @@ export class Notification {
   user: User;
 
   @Index()
-  @Column({ type: 'uuid' })
+  @Column({ type: 'uuid', name: 'user_id' }) // Safely binds this property to the exact foreign key column
   userId: string;
 
   @Column({ type: 'enum', enum: NotificationType })
@@ -47,9 +47,9 @@ export class Notification {
    * deep-link to the relevant screen when a notification is tapped.
    *
    * Examples:
-   *   BOOKING_CONFIRMED  → { bookingId, propertyId, propertyTitle, moveInDate }
-   *   COMPLAINT_UPDATED  → { complaintId, newStatus, category }
-   *   NEW_PROPERTY       → { propertyId, propertyTitle, type, price, area }
+   * BOOKING_CONFIRMED  → { bookingId, propertyId, propertyTitle, moveInDate }
+   * COMPLAINT_UPDATED  → { complaintId, newStatus, category }
+   * NEW_PROPERTY       → { propertyId, propertyTitle, type, price, area }
    */
   @Column({ type: 'jsonb', nullable: true })
   data: Record<string, unknown> | null;

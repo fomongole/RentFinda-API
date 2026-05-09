@@ -36,7 +36,7 @@ export class NotificationsService {
   async create(params: CreateNotificationParams): Promise<void> {
     try {
       const notification = this.notificationRepository.create({
-        userId: params.userId,
+        user: { id: params.userId }, // Safely passes the user relation to satisfy the foreign key
         type: params.type,
         title: params.title,
         message: params.message,
@@ -71,7 +71,7 @@ export class NotificationsService {
 
       const notifications = renters.map((renter) =>
         this.notificationRepository.create({
-          userId: renter.id,
+          user: { id: renter.id }, // Safely passes the user relation to satisfy the foreign key
           type: params.type,
           title: params.title,
           message: params.message,
