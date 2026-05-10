@@ -68,7 +68,7 @@ export class Property {
    * for this property. NULL = no cap enforced (backward-compatible).
    * Enforced in HostelRoomsService.create().
    */
-  @Column({ name: 'total_rooms', nullable: true })
+  @Column({ type: 'int', name: 'total_rooms', nullable: true })
   totalRooms: number | null;
 
   /**
