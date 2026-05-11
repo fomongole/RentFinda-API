@@ -31,4 +31,9 @@ export const envValidationSchema = Joi.object({
   MAIL_PASS: Joi.string().optional(),
   MAIL_FROM: Joi.string().optional(),
   APP_URL: Joi.string().uri().optional(),
+
+  // Brevo
+  BREVO_API_KEY: Joi.string().required(),
+  MAIL_FROM_EMAIL: Joi.string().email().optional(),
+  MAIL_FROM_NAME: Joi.string().optional(),
 });

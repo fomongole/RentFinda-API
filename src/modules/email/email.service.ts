@@ -1,69 +1,61 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import * as nodemailer from 'nodemailer';
-import type SMTPTransport from 'nodemailer/lib/smtp-transport';
 
 @Injectable()
 export class EmailService {
   private readonly logger = new Logger(EmailService.name);
-  private readonly transporter: nodemailer.Transporter;
+  private readonly apiKey: string;
+  private readonly fromEmail: string;
+  private readonly fromName: string;
 
   constructor(private readonly config: ConfigService) {
-  this.transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    auth: {
-      user: this.config.get<string>('MAIL_USER'),
-      pass: this.config.get<string>('MAIL_PASS'),
-    },
-  } as SMTPTransport.Options);
+    this.apiKey = this.config.get<string>('BREVO_API_KEY') ?? '';
+    this.fromEmail = this.config.get<string>('MAIL_FROM_EMAIL') ?? 'fomongole091600@gmail.com';
+    this.fromName  = this.config.get<string>('MAIL_FROM_NAME')  ?? 'NyumbaLink';
   }
 
-  // ── Internal send helper ──────────────────────────────────────────────────
-  // Fire-and-forget style — never crashes the calling operation on failure
   private async send(to: string, subject: string, html: string): Promise<void> {
     try {
-      const from =
-        this.config.get<string>('MAIL_FROM') ??
-        `"NyumbaLink" <${this.config.get('MAIL_USER')}>`;
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'api-key': this.apiKey,
+        },
+        body: JSON.stringify({
+          sender:      { name: this.fromName, email: this.fromEmail },
+          to:          [{ email: to }],
+          subject,
+          htmlContent: html,
+        }),
+      });
 
-      await this.transporter.sendMail({ from, to, subject, html });
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(error);
+      }
+
       this.logger.log(`Email sent → ${to} | ${subject}`);
     } catch (err) {
-      // Log but never propagate — same pattern as AuditLogsService
       this.logger.error(`Failed to send email to ${to}: ${(err as Error).message}`);
     }
   }
 
-  // ── Public methods ────────────────────────────────────────────────────────
+  // ── All public methods below are UNCHANGED ────────────────────────────────
 
   async sendAdminWelcome(email: string, name: string): Promise<void> {
     const portalUrl = this.config.get<string>('APP_URL') ?? 'http://localhost:3000';
-    await this.send(
-      email,
-      'Welcome to NyumbaLink Admin Portal',
-      this.adminWelcomeTemplate(name, email, portalUrl),
-    );
+    await this.send(email, 'Welcome to NyumbaLink Admin Portal', this.adminWelcomeTemplate(name, email, portalUrl));
   }
 
   async sendContactWelcome(email: string, name: string, role: string): Promise<void> {
-  await this.send(
-    email,
-    `Welcome to NyumbaLink — ${role === 'OWNER' ? 'Property Owner' : 'Agent'} Portal`,
-    this.contactWelcomeTemplate(name, role),
-  );
-}
-
-  async sendPasswordChanged(email: string, name: string): Promise<void> {
-    await this.send(
-      email,
-      'Your password has been changed — NyumbaLink',
-      this.passwordChangedTemplate(name),
-    );
+    await this.send(email, `Welcome to NyumbaLink — ${role === 'OWNER' ? 'Property Owner' : 'Agent'} Portal`, this.contactWelcomeTemplate(name, role));
   }
 
-  /** Notifies BOTH the old and new email address when the address changes */
+  async sendPasswordChanged(email: string, name: string): Promise<void> {
+    await this.send(email, 'Your password has been changed — NyumbaLink', this.passwordChangedTemplate(name));
+  }
+
   async sendEmailChanged(oldEmail: string, newEmail: string, name: string): Promise<void> {
     const html = this.emailChangedTemplate(name, newEmail);
     await this.send(oldEmail, 'Your email address has been updated — NyumbaLink', html);
@@ -71,28 +63,16 @@ export class EmailService {
   }
 
   async sendAccountActivated(email: string, name: string): Promise<void> {
-    await this.send(
-      email,
-      'Your account has been activated — NyumbaLink',
-      this.accountStatusTemplate(name, true),
-    );
+    await this.send(email, 'Your account has been activated — NyumbaLink', this.accountStatusTemplate(name, true));
   }
 
   async sendAccountDeactivated(email: string, name: string): Promise<void> {
-    await this.send(
-      email,
-      'Your account has been deactivated — NyumbaLink',
-      this.accountStatusTemplate(name, false),
-    );
+    await this.send(email, 'Your account has been deactivated — NyumbaLink', this.accountStatusTemplate(name, false));
   }
 
   async sendPasswordResetOtp(email: string, name: string, otp: string): Promise<void> {
-  await this.send(
-    email,
-    'Your password reset code — NyumbaLink',
-    this.passwordResetOtpTemplate(name, otp),
-  );
-}
+    await this.send(email, 'Your password reset code — NyumbaLink', this.passwordResetOtpTemplate(name, otp));
+  }
 
   // ── HTML Templates ────────────────────────────────────────────────────────
   // All styles are inlined for maximum email client compatibility.
