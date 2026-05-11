@@ -15,6 +15,8 @@ import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -75,5 +77,24 @@ export class AuthController {
     }
 
     return { message: 'Logged out successfully' };
+  }
+
+  @Post('forgot-password')
+  @Throttle({ default: { ttl: 60_000, limit: 3 } })   // strict — OTPs are a DDoS surface
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Request a password-reset OTP — rate limited to 3/min' })
+  @ApiResponse({ status: 200, description: 'Always returns 200 to prevent email enumeration' })
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.authService.forgotPassword(dto);
+  }
+
+  @Post('reset-password')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify OTP and set a new password' })
+  @ApiResponse({ status: 200, description: 'Password reset successfully' })
+  @ApiResponse({ status: 400, description: 'OTP invalid or expired' })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.authService.resetPassword(dto);
   }
 }

@@ -192,4 +192,9 @@ export class UsersService {
     const { password: _p, ...rest } = saved;
     return rest as Omit<User, 'password'>;
   }
+
+  /** Internal use only — called by the password-reset OTP flow. */
+  async updatePasswordDirectly(userId: string, hashedPassword: string): Promise<void> {
+    await this.userRepository.update(userId, { password: hashedPassword });
+  }
 }

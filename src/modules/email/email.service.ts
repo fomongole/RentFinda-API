@@ -85,6 +85,14 @@ export class EmailService {
     );
   }
 
+  async sendPasswordResetOtp(email: string, name: string, otp: string): Promise<void> {
+  await this.send(
+    email,
+    'Your password reset code — NyumbaLink',
+    this.passwordResetOtpTemplate(name, otp),
+  );
+}
+
   // ── HTML Templates ────────────────────────────────────────────────────────
   // All styles are inlined for maximum email client compatibility.
 
@@ -288,6 +296,53 @@ export class EmailService {
       <p style="margin:0;color:#a1a1aa;font-size:13px;line-height:1.6;">
         If you have any questions, please reach out to the NyumbaLink team directly.
         Do not reply to this automated email.
+      </p>
+    `);
+  }
+
+  private passwordResetOtpTemplate(name: string, otp: string): string {
+  const digits = otp.split('');
+
+    return this.base(`
+      <h2 style="margin:0 0 8px;color:#09090b;font-size:20px;font-weight:700;
+                letter-spacing:-0.3px;">Password reset request</h2>
+      <p style="margin:0 0 24px;color:#52525b;font-size:14px;line-height:1.75;">
+        Hi <strong>${name}</strong>, use the code below to reset your
+        NyumbaLink password. It expires in <strong>15 minutes</strong>.
+      </p>
+
+      <!-- OTP display — each digit in its own box -->
+      <table cellpadding="0" cellspacing="0" role="presentation"
+            style="margin-bottom:28px;">
+        <tr>
+          ${digits.map(d => `
+            <td style="padding-right:8px;">
+              <div style="width:44px;height:56px;background:#f4f4f5;
+                          border-radius:8px;border:1px solid #e4e4e7;
+                          font-size:28px;font-weight:700;color:#09090b;
+                          text-align:center;line-height:56px;
+                          font-family:'Helvetica Neue',Helvetica,Arial,sans-serif;
+                          letter-spacing:-0.5px;">
+                ${d}
+              </div>
+            </td>`).join('')}
+        </tr>
+      </table>
+
+      <table cellpadding="0" cellspacing="0" role="presentation"
+            style="background:#fef3c7;border-left:3px solid #f59e0b;
+                    border-radius:0 8px 8px 0;padding:14px 18px;
+                    margin-bottom:24px;width:100%;">
+        <tr><td>
+          <p style="margin:0;color:#92400e;font-size:13px;line-height:1.65;">
+            <strong>Didn't request this?</strong> Ignore this email — your
+            password will not change unless you enter this code.
+          </p>
+        </td></tr>
+      </table>
+
+      <p style="margin:0;color:#a1a1aa;font-size:12px;">
+        Requested at: ${new Date().toUTCString()}
       </p>
     `);
   }

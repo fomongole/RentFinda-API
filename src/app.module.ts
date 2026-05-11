@@ -27,9 +27,13 @@ import { envValidationSchema } from './config/env.validation';
 import { LoggerModule } from 'nestjs-pino';
 import { HealthModule } from './modules/health/health.module';
 import { FavoritesModule } from './modules/favorites/favorites.module';
+import { ScheduleModule } from '@nestjs/schedule';
+
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
+    
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, jwtConfig],

@@ -1,7 +1,7 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { randomUUID } from 'crypto';
+import { randomInt, randomUUID } from 'crypto';
 import { UsersService } from '../users/users.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -10,15 +10,24 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
 import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 import { TokenBlacklistService } from '../token-blacklist/token-blacklist.service';
+import { PasswordResetToken } from './entities/password-reset-token.entity';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { EmailService } from '../email/email.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly usersService: UsersService,
-    private readonly jwtService: JwtService,
-    private readonly auditLogsService: AuditLogsService,
-    private readonly tokenBlacklistService: TokenBlacklistService,
-  ) {}
+  private readonly usersService: UsersService,
+  private readonly jwtService: JwtService,
+  private readonly auditLogsService: AuditLogsService,
+  private readonly tokenBlacklistService: TokenBlacklistService,
+  private readonly emailService: EmailService, 
+  @InjectRepository(PasswordResetToken) 
+  private readonly passwordResetRepo: Repository<PasswordResetToken>,
+) {}
 
   async register(dto: RegisterDto) {
     const user = await this.usersService.create(dto.name, dto.email, dto.password);
@@ -93,4 +102,90 @@ export class AuthService {
       },
     };
   }
+
+  /**
+ * Step 1 — request an OTP.
+ * Always returns the same response whether the email exists or not.
+ * This prevents attackers from enumerating registered addresses.
+ */
+async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
+  const user = await this.usersService.findByEmail(dto.email);
+
+  if (user) {
+    // Invalidate any previous unused tokens for this email
+    await this.passwordResetRepo
+      .createQueryBuilder()
+      .update(PasswordResetToken)
+      .set({ usedAt: new Date() })
+      .where('email = :email AND usedAt IS NULL', { email: dto.email })
+      .execute();
+
+    // Generate a cryptographically random 6-digit OTP
+    const otp = randomInt(100_000, 999_999).toString();
+    const tokenHash = await bcrypt.hash(otp, 10);
+    const expiresAt = new Date(Date.now() + 15 * 60 * 1_000); // 15 minutes
+
+    const token = this.passwordResetRepo.create({
+      email: dto.email,
+      tokenHash,
+      expiresAt,
+      usedAt: null,
+    });
+    await this.passwordResetRepo.save(token);
+
+    // Fire-and-forget — a failed email never blocks the response
+    void this.emailService.sendPasswordResetOtp(dto.email, user.name, otp);
+  }
+
+  // Identical response either way — no information leak
+  return {
+    message: 'If that email is registered you will receive a reset code shortly.',
+  };
+}
+
+/**
+ * Step 2 — verify the OTP and set a new password.
+ */
+async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+  // Find the most recent valid (unused, unexpired) token for this email
+  const token = await this.passwordResetRepo
+    .createQueryBuilder('t')
+    .where('t.email = :email', { email: dto.email })
+    .andWhere('t.usedAt IS NULL')
+    .andWhere('t.expiresAt > NOW()')
+    .orderBy('t.createdAt', 'DESC')
+    .getOne();
+
+  // Deliberately vague error — don't reveal why it failed
+  const INVALID = 'Reset code is invalid or has expired.';
+
+  if (!token) throw new BadRequestException(INVALID);
+
+  const isMatch = await bcrypt.compare(dto.otp, token.tokenHash);
+  if (!isMatch) throw new BadRequestException(INVALID);
+
+  // Mark the token as used before touching the password
+  token.usedAt = new Date();
+  await this.passwordResetRepo.save(token);
+
+  // Update the password — reuse the same logic as changePassword
+  const user = await this.usersService.findByEmail(dto.email);
+  if (!user) throw new BadRequestException(INVALID);
+
+  const hashed = await bcrypt.hash(dto.newPassword, 10);
+  await this.usersService.updatePasswordDirectly(user.id, hashed);
+
+  await this.auditLogsService.log({
+    action: AuditAction.PASSWORD_CHANGE,
+    entity: AuditEntity.AUTH,
+    entityId: user.id,
+    entityTitle: `${user.name} reset their password via OTP`,
+    performedBy: user,
+  });
+
+  // Security notifications — same as the manual change flow
+  void this.emailService.sendPasswordChanged(user.email, user.name);
+
+  return { message: 'Password reset successfully. You can now log in.' };
+}
 }
