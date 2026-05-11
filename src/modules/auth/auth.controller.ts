@@ -17,6 +17,8 @@ import { Throttle } from '@nestjs/throttler';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { User } from '../users/entities/user.entity';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -57,27 +59,26 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout — invalidates the current token' })
-  async logout(@Req() req: Request) {
-    const rawToken: string | undefined =
-      req.headers.authorization?.replace('Bearer ', '');
+  // auth.controller.ts — logout method
+async logout(@Req() req: Request, @CurrentUser() user: User) {
+  const rawToken = req.headers.authorization?.replace('Bearer ', '');
 
-    if (rawToken) {
-      try {
-        const decoded = this.jwtService.decode(rawToken) as {
-          jti?: string;
-          exp?: number;
-        } | null;
+  if (rawToken) {
+    try {
+      const decoded = this.jwtService.decode(rawToken) as {
+        jti?: string; exp?: number;
+      } | null;
 
-        if (decoded?.jti && decoded?.exp) {
-          await this.authService.logout(decoded.jti, decoded.exp);
-        }
-      } catch {
-        // Malformed token — nothing to blacklist
+      if (decoded?.jti && decoded?.exp) {
+        await this.authService.logout(decoded.jti, decoded.exp, user); // ← pass user
       }
+    } catch {
+      // Malformed token
     }
-
-    return { message: 'Logged out successfully' };
   }
+
+  return { message: 'Logged out successfully' };
+}
 
   @Post('forgot-password')
   @Throttle({ default: { ttl: 60_000, limit: 3 } })   // strict — OTPs are a DDoS surface

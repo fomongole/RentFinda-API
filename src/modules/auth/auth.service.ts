@@ -75,8 +75,15 @@ export class AuthService {
    * Invalidate the user's current token.
    * Called by the logout endpoint after the token is decoded from the cookie.
    */
-  async logout(jti: string, exp: number): Promise<void> {
+  async logout(jti: string, exp: number, user: User): Promise<void> {
     await this.tokenBlacklistService.blacklist(jti, exp);
+
+    await this.auditLogsService.log({
+      action: AuditAction.LOGOUT,
+      entity: AuditEntity.AUTH,
+      entityTitle: `${user.name} logged out`,
+      performedBy: user,
+    });
   }
 
   private buildResponse(user: User) {
