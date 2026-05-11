@@ -7,7 +7,6 @@ import {
   Res,
   Req,
   UseGuards,
-  UnauthorizedException,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
@@ -51,26 +50,28 @@ export class AuthController {
     @Res({ passthrough: true }) res: Response,
   ) {
     const result = await this.authService.login(dto);
-    const isProduction = this.configService.get('NODE_ENV') === 'production';
 
     /**
-     * Set the JWT as an httpOnly cookie.
+     * FIX: sameSite must be 'none' (not 'strict') when the frontend and backend
+     * are on different domains (Vercel → Railway).
      *
-     * httpOnly  — JS on the page can NEVER read or steal this token (blocks XSS).
-     * secure    — only sent over HTTPS in production.
-     * sameSite  — 'strict' blocks CSRF: the cookie is never sent on
-     *             cross-site navigations/requests initiated by other sites.
-     * path      — scoped to the API so it's not sent with every CDN asset request.
+     * 'strict' blocks the cookie from being sent on ANY cross-origin request,
+     * which caused every API call to return 401 even when logged in.
+     *
+     * sameSite: 'none' requires secure: true — always set it regardless of env.
+     *
+     * path is changed from '/api' to '/' so the cookie is sent with every request,
+     * not just those under /api (some clients strip the prefix).
      */
     res.cookie('access_token', result.accessToken, {
-      httpOnly: true,
-      secure: isProduction,
-      sameSite: 'strict',
+      httpOnly: true,   // JS on the page can never read this token (blocks XSS)
+      secure: true,     // Required when sameSite is 'none' — HTTPS only
+      sameSite: 'none', // Allows cross-origin requests (Vercel → Railway)
       maxAge: COOKIE_MAX_AGE_SECONDS * 1_000, // ms
-      path: '/api',
+      path: '/',        // Sent with every request to this domain
     });
 
-    // Return the user object (no token in the body — it's in the cookie)
+    // Return the user object (no token in the body — it lives in the cookie)
     return { user: result.user };
   }
 
@@ -109,7 +110,13 @@ export class AuthController {
     }
 
     // Always clear the cookie regardless of token validity
-    res.clearCookie('access_token', { path: '/api' });
+    // path must match exactly what was set during login
+    res.clearCookie('access_token', {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'none',
+      path: '/',
+    });
 
     return { message: 'Logged out successfully' };
   }
