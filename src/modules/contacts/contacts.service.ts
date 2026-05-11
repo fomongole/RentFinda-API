@@ -9,6 +9,7 @@ import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
 import { AuditEntity } from '../audit-logs/enums/audit-entity.enum';
 import { User } from '../users/entities/user.entity';
+import { EmailService } from '../email/email.service';
 
 /**
  * Normalize optional string fields — convert empty strings to undefined
@@ -32,23 +33,29 @@ export class ContactsService {
     @InjectRepository(Contact)
     private readonly contactRepository: Repository<Contact>,
     private readonly auditLogsService: AuditLogsService,
+     private readonly emailService: EmailService,
   ) {}
 
   async create(dto: CreateContactDto, performedBy: User): Promise<Contact> {
-    const normalized = normalizeOptionalStrings(dto);
-    const contact = this.contactRepository.create(normalized);
-    const saved = await this.contactRepository.save(contact);
+  const normalized = normalizeOptionalStrings(dto);
+  const contact = this.contactRepository.create(normalized);
+  const saved = await this.contactRepository.save(contact);
 
-    await this.auditLogsService.log({
-      action: AuditAction.CREATE,
-      entity: AuditEntity.CONTACT,
-      entityId: saved.id,
-      entityTitle: `${saved.name} (${saved.role})`,
-      performedBy,
-    });
+  await this.auditLogsService.log({
+    action: AuditAction.CREATE,
+    entity: AuditEntity.CONTACT,
+    entityId: saved.id,
+    entityTitle: `${saved.name} (${saved.role})`,
+    performedBy,
+  });
+
+    // ── Email: welcome the new contact if they have an email on file ──────
+    if (saved.email) {
+      void this.emailService.sendContactWelcome(saved.email, saved.name, saved.role);
+    }
 
     return saved;
-  }
+}
 
   async findAll(filters: FilterContactsDto = {}) {
     const { search, role, page = 1, limit = 20 } = filters;

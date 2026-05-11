@@ -46,6 +46,14 @@ export class EmailService {
     );
   }
 
+  async sendContactWelcome(email: string, name: string, role: string): Promise<void> {
+  await this.send(
+    email,
+    `Welcome to NyumbaLink — ${role === 'OWNER' ? 'Property Owner' : 'Agent'} Portal`,
+    this.contactWelcomeTemplate(name, role),
+  );
+}
+
   async sendPasswordChanged(email: string, name: string): Promise<void> {
     await this.send(
       email,
@@ -249,6 +257,37 @@ export class EmailService {
 
       <p style="margin:0;color:#a1a1aa;font-size:13px;">
         If you believe this is a mistake, contact your system administrator.
+      </p>
+    `);
+  }
+
+  private contactWelcomeTemplate(name: string, role: string): string {
+    const roleLabel = role === 'OWNER' ? 'Property Owner' : 'Agent / Broker';
+    const roleMessage =
+      role === 'OWNER'
+        ? 'Your properties are now being managed on the NyumbaLink platform. Our team will keep you updated on listings, bookings, and any activity related to your properties.'
+        : 'You have been registered as an agent on the NyumbaLink platform. You will be contacted regarding properties you manage on behalf of owners.';
+
+    return this.base(`
+      <h2 style="margin:0 0 8px;color:#09090b;font-size:20px;font-weight:700;
+                letter-spacing:-0.3px;">Welcome to NyumbaLink, ${name}!</h2>
+      <p style="margin:0 0 24px;color:#52525b;font-size:14px;line-height:1.75;">
+        ${roleMessage}
+      </p>
+
+      <table cellpadding="0" cellspacing="0" role="presentation"
+            style="background:#f4f4f5;border-radius:8px;padding:16px 20px;
+                    margin-bottom:28px;width:100%;">
+        <tr><td>
+          <p style="margin:0 0 4px;color:#71717a;font-size:11px;
+                    text-transform:uppercase;letter-spacing:0.6px;">Registered as</p>
+          <p style="margin:0;color:#09090b;font-size:14px;font-weight:600;">${roleLabel}</p>
+        </td></tr>
+      </table>
+
+      <p style="margin:0;color:#a1a1aa;font-size:13px;line-height:1.6;">
+        If you have any questions, please reach out to the NyumbaLink team directly.
+        Do not reply to this automated email.
       </p>
     `);
   }

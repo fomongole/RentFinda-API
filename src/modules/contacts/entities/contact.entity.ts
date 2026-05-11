@@ -10,10 +10,6 @@ import { ContactRole } from '../enums/contact-role.enum';
 /**
  * A Contact is the person responsible for a property — either the OWNER
  * or an AGENT (broker/property manager acting on the owner's behalf).
- *
- * Replaces the old Landlord entity. The table is renamed from 'landlords'
- * to 'contacts'. Since we are still in development and tables can be dropped,
- * no migration is needed — TypeORM synchronize will recreate from scratch.
  */
 @Entity('contacts')
 export class Contact {
