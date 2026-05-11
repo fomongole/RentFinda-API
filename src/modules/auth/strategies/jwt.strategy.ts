@@ -2,24 +2,8 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
-import { Request } from 'express';
 import { UsersService } from '../../users/users.service';
 import { TokenBlacklistService } from '../../token-blacklist/token-blacklist.service';
-
-/**
- * Extracts the JWT from:
- * 1. The `access_token` httpOnly cookie  (admin web portal)
- * 2. The Authorization Bearer header     (mobile app / API clients)
- *
- * Cookie takes precedence — if both are present, the cookie wins.
- */
-function cookieOrBearerExtractor(req: Request): string | null {
-  const cookieToken = (req.cookies as Record<string, string>)?.['access_token'];
-  if (cookieToken) return cookieToken;
-
-  // Fall back to the standard Bearer header
-  return ExtractJwt.fromAuthHeaderAsBearerToken()(req);
-}
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -29,10 +13,10 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly tokenBlacklistService: TokenBlacklistService,
   ) {
     super({
-      jwtFromRequest: cookieOrBearerExtractor,
+      // Read token from Authorization: Bearer <token> header only
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
       secretOrKey: configService.get<string>('jwt.secret') as string,
-      passReqToCallback: false,
     });
   }
 
@@ -43,8 +27,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     jti?: string;
   }) {
     try {
-      // ── Token blacklist check ─────────────────────────────────────────────
-      // Ensures logged-out tokens cannot be reused even before natural expiry.
       if (payload.jti) {
         const revoked = await this.tokenBlacklistService.isBlacklisted(payload.jti);
         if (revoked) {
