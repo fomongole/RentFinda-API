@@ -8,4 +8,5 @@ export enum AuditEntity {
   BOOKING     = 'BOOKING',
   DISTRICT    = 'DISTRICT',
   COMPLAINT   = 'COMPLAINT',
+  UNIVERSITY  = 'UNIVERSITY',
 }

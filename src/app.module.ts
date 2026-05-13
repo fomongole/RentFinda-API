@@ -7,33 +7,33 @@ import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import databaseConfig from './config/database.config';
 import jwtConfig from './config/jwt.config';
 
-import { UsersModule } from './modules/users/users.module';
-import { AuthModule } from './modules/auth/auth.module';
-import { ContactsModule } from './modules/contacts/contacts.module';
-import { DistrictsModule } from './modules/districts/districts.module';
-import { DistrictsService } from './modules/districts/districts.service';
-import { PropertiesModule } from './modules/properties/properties.module';
-import { MediaModule } from './modules/media/media.module';
-import { AuditLogsModule } from './modules/audit-logs/audit-logs.module';
-import { HostelRoomsModule } from './modules/hostel-rooms/hostel-rooms.module';
-import { BookingsModule } from './modules/bookings/bookings.module';
-import { ComplaintsModule } from './modules/complaints/complaints.module';
+import { UsersModule }         from './modules/users/users.module';
+import { AuthModule }          from './modules/auth/auth.module';
+import { ContactsModule }      from './modules/contacts/contacts.module';
+import { DistrictsModule }     from './modules/districts/districts.module';
+import { DistrictsService }    from './modules/districts/districts.service';
+import { UniversitiesModule }  from './modules/universities/universities.module';
+import { UniversitiesService } from './modules/universities/universities.service';
+import { PropertiesModule }    from './modules/properties/properties.module';
+import { MediaModule }         from './modules/media/media.module';
+import { AuditLogsModule }     from './modules/audit-logs/audit-logs.module';
+import { HostelRoomsModule }   from './modules/hostel-rooms/hostel-rooms.module';
+import { BookingsModule }      from './modules/bookings/bookings.module';
+import { ComplaintsModule }    from './modules/complaints/complaints.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
-import { EmailModule } from './modules/email/email.module';
+import { EmailModule }         from './modules/email/email.module';
 import { TokenBlacklistModule } from './modules/token-blacklist/token-blacklist.module';
+import { HealthModule }        from './modules/health/health.module';
+import { FavoritesModule }     from './modules/favorites/favorites.module';
+import { ScheduleModule }      from '@nestjs/schedule';
 
 import { envValidationSchema } from './config/env.validation';
-
 import { LoggerModule } from 'nestjs-pino';
-import { HealthModule } from './modules/health/health.module';
-import { FavoritesModule } from './modules/favorites/favorites.module';
-import { ScheduleModule } from '@nestjs/schedule';
-
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
-    
+
     ConfigModule.forRoot({
       isGlobal: true,
       load: [databaseConfig, jwtConfig],
@@ -107,6 +107,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     AuthModule,
     ContactsModule,
     DistrictsModule,
+    UniversitiesModule,
     PropertiesModule,
     MediaModule,
     HostelRoomsModule,
@@ -123,9 +124,16 @@ import { ScheduleModule } from '@nestjs/schedule';
   ],
 })
 export class AppModule implements OnModuleInit {
-  constructor(private readonly districtsService: DistrictsService) {}
+  constructor(
+    private readonly districtsService: DistrictsService,
+    private readonly universitiesService: UniversitiesService,
+  ) {}
 
   async onModuleInit() {
-    await this.districtsService.seed();
+    // Run seeds in parallel — they are independent of each other
+    await Promise.all([
+      this.districtsService.seed(),
+      this.universitiesService.seed(),
+    ]);
   }
 }

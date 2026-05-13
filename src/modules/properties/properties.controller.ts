@@ -7,12 +7,13 @@ import { PropertiesService } from './properties.service';
 import { CreatePropertyDto } from './dto/create-property.dto';
 import { UpdatePropertyDto } from './dto/update-property.dto';
 import { FilterPropertyDto } from './dto/filter-property.dto';
-import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
-import { RolesGuard } from '../../common/guards/roles.guard';
-import { Roles } from '../../common/decorators/roles.decorator';
-import { UserRole } from '../users/enums/user-role.enum';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
-import { User } from '../users/entities/user.entity';
+import { SetFeaturedDto }    from './dto/set-featured.dto';
+import { JwtAuthGuard }      from '../../common/guards/jwt-auth.guard';
+import { RolesGuard }        from '../../common/guards/roles.guard';
+import { Roles }             from '../../common/decorators/roles.decorator';
+import { UserRole }          from '../users/enums/user-role.enum';
+import { CurrentUser }       from '../../common/decorators/current-user.decorator';
+import { User }              from '../users/entities/user.entity';
 
 @ApiTags('Properties')
 @Controller('properties')
@@ -41,13 +42,12 @@ export class PropertiesController {
   @ApiOperation({ summary: 'Get a single property by ID (public) — increments view count' })
   async findOne(@Param('id') id: string) {
     const property = await this.propertiesService.findOne(id);
-    // Non-blocking — fire and forget
     this.propertiesService.incrementViewCount(id).catch(() => null);
     return property;
   }
 
   @Post(':id/enquiry')
-  @ApiOperation({ summary: 'Record a renter enquiry on a property (public, called by mobile app)' })
+  @ApiOperation({ summary: 'Record a renter enquiry on a property (public)' })
   recordEnquiry(@Param('id') id: string) {
     return this.propertiesService.recordEnquiry(id);
   }
@@ -79,6 +79,30 @@ export class PropertiesController {
   @ApiOperation({ summary: 'Toggle property availability status (admin only)' })
   toggleStatus(@Param('id') id: string, @CurrentUser() user: User) {
     return this.propertiesService.toggleStatus(id, user);
+  }
+
+  /**
+   * Sets or clears the featured status of a property.
+   * Admin calls this after receiving payment (e.g. mobile money) from the owner.
+   * The nightly cron job auto-expires the listing once featuredUntil is reached.
+   */
+  @Patch(':id/feature')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @ApiOperation({
+    summary: 'Feature or un-feature a property (admin only)',
+    description:
+      'Sets isFeatured and featuredUntil. Featured properties are sorted above ' +
+      'standard listings in all search results and receive a "Featured" badge in the UI. ' +
+      'A nightly cron job automatically expires listings once featuredUntil is passed.',
+  })
+  setFeatured(
+    @Param('id') id: string,
+    @Body() dto: SetFeaturedDto,
+    @CurrentUser() user: User,
+  ) {
+    return this.propertiesService.setFeatured(id, dto, user);
   }
 
   @Patch(':id/restore')

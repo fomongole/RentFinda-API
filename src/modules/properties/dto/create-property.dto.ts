@@ -32,7 +32,6 @@ export class CreatePropertyDto {
   /**
    * The period this price applies to.
    * Required for all types except HOSTEL (billing cycle is set per room).
-   * Allowed values depend on property type — enforced server-side.
    */
   @ApiPropertyOptional({ enum: BillingCycle })
   @IsEnum(BillingCycle)
@@ -41,9 +40,7 @@ export class CreatePropertyDto {
 
   /**
    * Total number of rooms in the property.
-   * Replaces the former `bedrooms` + `bathrooms` pair.
-   * Not applicable to HOSTEL (stripped server-side — individual rooms managed
-   * via the HostelRooms module).
+   * Not applicable to HOSTEL (stripped server-side).
    */
   @ApiPropertyOptional({
     example: 3,
@@ -56,9 +53,7 @@ export class CreatePropertyDto {
   numberOfRooms?: number;
 
   /**
-   * HOSTEL only — the maximum number of HostelRoom entries that can be
-   * registered under this property.
-   * NULL / omitted = no cap enforced.
+   * HOSTEL only — maximum number of HostelRoom entries allowed under this property.
    */
   @ApiPropertyOptional({
     example: 20,
@@ -149,4 +144,37 @@ export class CreatePropertyDto {
   @IsString({ each: true })
   @IsOptional()
   amenities?: string[];
+
+  // ── HOSTEL-only fields ────────────────────────────────────────────────────
+
+  /**
+   * HOSTEL only: the nearby university this hostel primarily serves.
+   * Stripped server-side for all other property types.
+   */
+  @ApiPropertyOptional({
+    example: 'uuid-of-university',
+    description:
+      'HOSTEL only: links this hostel to a nearby university so renters can ' +
+      'search "hostels near Kyambogo".',
+  })
+  @IsUUID()
+  @IsOptional()
+  universityId?: string;
+
+  /**
+   * HOSTEL only: walking / commuting distance to the linked university in kilometres.
+   * Admin-entered — more accurate than a straight-line calculation.
+   * Stripped server-side for all other property types.
+   */
+  @ApiPropertyOptional({
+    example: 0.5,
+    description:
+      'HOSTEL only: approximate distance to the linked university in kilometres ' +
+      '(e.g. 0.5 = 500 m). Admin-entered to reflect actual walking distance.',
+  })
+  @IsNumber()
+  @Min(0)
+  @IsOptional()
+  @Type(() => Number)
+  approximateDistanceKm?: number;
 }

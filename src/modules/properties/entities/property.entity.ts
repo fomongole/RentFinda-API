@@ -16,6 +16,7 @@ import { FurnishingStatus }   from '../enums/furnishing-status.enum';
 import { BillingCycle }       from '../enums/billing-cycle.enum';
 import { HotelCategory }      from '../enums/hotel-category.enum';
 import { District }           from '../../districts/entities/district.entity';
+import { University }         from '../../universities/entities/university.entity';
 import { PropertyImage }      from './property-image.entity';
 import { Contact }            from 'src/modules/contacts/entities/contact.entity';
 
@@ -48,24 +49,20 @@ export class Property {
 
   /**
    * Generic room count for the property.
-   * Replaces the former separate `bedrooms` + `bathrooms` fields.
-   * - Not applicable to HOSTEL (rooms managed via HostelRoom entity → stripped).
-   * - Stored in the `number_of_rooms` DB column.
+   * Not applicable to HOSTEL (rooms managed via HostelRoom entity → stripped).
    */
   @Column({ name: 'number_of_rooms', default: 1 })
   numberOfRooms: number;
 
   /**
-   * HOSTEL only: the maximum number of HostelRoom entries that can be created
-   * for this property. NULL = no cap enforced (backward-compatible).
-   * Enforced in HostelRoomsService.create().
+   * HOSTEL only: the maximum number of HostelRoom entries that can be created.
+   * NULL = no cap enforced.
    */
   @Column({ type: 'int', name: 'total_rooms', nullable: true })
   totalRooms: number | null;
 
   /**
    * HOTEL_LODGE only: tier / service-level category.
-   * Stripped for all other property types.
    */
   @Column({ type: 'enum', enum: HotelCategory, name: 'hotel_category', nullable: true })
   hotelCategory: HotelCategory | null;
@@ -115,6 +112,48 @@ export class Property {
   @Column({ default: 0 })
   enquiryCount: number;
 
+  // ── Featured listing ──────────────────────────────────────────────────────
+
+  /**
+   * Whether this property is currently displayed as a featured listing.
+   * Featured properties are sorted above standard listings in all search results.
+   * Toggled by an admin after receiving payment. Auto-expires via cron job.
+   */
+  @Index()
+  @Column({ default: false })
+  isFeatured: boolean;
+
+  /**
+   * The date after which this property's featured status automatically expires.
+   * The nightly cron job in PropertiesSchedulerTask checks this and resets
+   * isFeatured to false when the date has passed.
+   * Null when the property is not featured.
+   */
+  @Column({ type: 'date', nullable: true })
+  featuredUntil: Date | null;
+
+  // ── University (HOSTEL only) ──────────────────────────────────────────────
+
+  /**
+   * The nearby university this hostel serves.
+   * HOSTEL only — stripped by stripInapplicableFields for all other types.
+   * Null for non-hostel properties and hostels with no university association.
+   */
+  @ManyToOne(() => University, { nullable: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'university_id' })
+  university: University | null;
+
+  /**
+   * Approximate walking / commuting distance from this hostel to the linked university.
+   * Admin-entered in kilometres. More reliable than straight-line haversine distance
+   * which does not account for roads, traffic, or terrain.
+   * HOSTEL only — stripped for all other types.
+   */
+  @Column({ type: 'decimal', precision: 5, scale: 2, nullable: true })
+  approximateDistanceKm: number | null;
+
+  // ── Relations ─────────────────────────────────────────────────────────────
+
   /**
    * The person responsible for this property — either the OWNER or an AGENT.
    */
@@ -127,7 +166,7 @@ export class Property {
   district: District;
 
   /**
-   * Images are managed independently via MediaService.
+   * Images managed independently via MediaService.
    * Hard-deletes cascade at DB level via onDelete: 'CASCADE' on the FK.
    */
   @OneToMany(() => PropertyImage, (image) => image.property)
