@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
-  IsBoolean, IsEnum, IsInt, IsNumber, IsOptional,
+  IsBoolean, IsEnum, IsIn, IsInt, IsNumber, IsOptional,
   IsString, IsUUID, MaxLength, Min,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
@@ -91,6 +91,29 @@ export class FilterPropertyDto {
     return value;
   })
   isFeatured?: boolean;
+
+  // ── Sorting ──────────────────────────────────────────────────────────────
+
+  @ApiPropertyOptional({
+    enum: ['createdAt', 'price', 'viewCount', 'enquiryCount'],
+    description:
+      'Field to sort results by. Defaults to createdAt. ' +
+      'Featured properties always float to the top regardless of this setting. ' +
+      'Use viewCount to show "most popular" listings first.',
+    example: 'viewCount',
+  })
+  @IsIn(['createdAt', 'price', 'viewCount', 'enquiryCount'])
+  @IsOptional()
+  sortBy?: 'createdAt' | 'price' | 'viewCount' | 'enquiryCount';
+
+  @ApiPropertyOptional({
+    enum: ['ASC', 'DESC'],
+    default: 'DESC',
+    description: 'Sort direction. Defaults to DESC.',
+  })
+  @IsIn(['ASC', 'DESC'])
+  @IsOptional()
+  sortOrder?: 'ASC' | 'DESC';
 
   // ── Geospatial filtering (mobile app) ───────────────────────────────────
 

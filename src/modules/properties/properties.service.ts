@@ -26,6 +26,10 @@ import {
   validateBillingCycle,
 } from './utils/property-field-rules';
 
+// Whitelist of columns safe to use in dynamic ORDER BY.
+// This prevents SQL injection if the DTO validation is somehow bypassed.
+const ALLOWED_SORT_FIELDS = new Set(['createdAt', 'price', 'viewCount', 'enquiryCount']);
+
 @Injectable()
 export class PropertiesService {
   constructor(
@@ -92,9 +96,15 @@ export class PropertiesService {
       universityId, isFeatured,
       lat, lng, radius = 5,
       page = 1, limit = 15,
+      sortBy, sortOrder,
     } = filters;
 
     const safeLimit = Math.min(limit, 100);
+
+    // Resolve sort field — fall back to createdAt if somehow an unexpected value
+    // slips through (belt-and-suspenders on top of DTO validation).
+    const safeSortField = sortBy && ALLOWED_SORT_FIELDS.has(sortBy) ? sortBy : 'createdAt';
+    const safeSortOrder: 'ASC' | 'DESC' = sortOrder === 'ASC' ? 'ASC' : 'DESC';
 
     const query = this.propertyRepository
       .createQueryBuilder('property')
@@ -132,7 +142,11 @@ export class PropertiesService {
       query.andWhere('property.isFeatured = :isFeatured', { isFeatured });
     }
 
-    // ── Ordering: featured listings always float to the top ─────────────
+    // ── Ordering ────────────────────────────────────────────────────────────
+    // Featured listings always float to the top regardless of sort preference.
+    // When geo-filtering is active, distance overrides the secondary sort so
+    // nearby results appear first (sortBy is ignored in this case, matching the
+    // original behaviour — geo results are inherently position-sorted).
     if (lat && lng) {
       const haversine = `(
         6371 * acos(
@@ -143,15 +157,15 @@ export class PropertiesService {
         )
       )`;
       query.andWhere(`${haversine} <= :radius`, { lat, lng, radius });
-      // Featured first, then nearest
+      // Featured first, then nearest — sortBy is not applied in geo mode
       query
         .orderBy('property.isFeatured', 'DESC')
         .addOrderBy(haversine, 'ASC');
     } else {
-      // Featured first, then newest
+      // Featured first, then by the requested sort field / direction
       query
         .orderBy('property.isFeatured', 'DESC')
-        .addOrderBy('property.createdAt', 'DESC');
+        .addOrderBy(`property.${safeSortField}`, safeSortOrder);
     }
 
     const total = await query.getCount();
