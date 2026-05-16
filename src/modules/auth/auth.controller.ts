@@ -37,10 +37,14 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
+  /**
+   * Renter-only — mobile app login.
+   * Admins attempting to use this endpoint are silently rejected.
+   */
   @Post('login')
   @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Login as admin or renter' })
+  @ApiOperation({ summary: 'Login for renters (mobile app) — admins are blocked' })
   @ApiResponse({ status: 200, description: 'Login successful' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   async login(@Body() dto: LoginDto) {
@@ -54,31 +58,52 @@ export class AuthController {
     };
   }
 
+  /**
+   * Admin-only — web portal login.
+   * Renters attempting to use this endpoint are silently rejected.
+   */
+  @Post('admin/login')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Login for admins (web portal only) — renters are blocked' })
+  @ApiResponse({ status: 200, description: 'Login successful' })
+  @ApiResponse({ status: 401, description: 'Invalid credentials' })
+  async adminLogin(@Body() dto: LoginDto) {
+    const result = await this.authService.adminLogin(dto);
+
+    // Return token in response body.
+    // Web portal stores it and sends it as a Bearer header.
+    return {
+      accessToken: result.accessToken,
+      user: result.user,
+    };
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Logout — invalidates the current token' })
-  // auth.controller.ts — logout method
-async logout(@Req() req: Request, @CurrentUser() user: User) {
-  const rawToken = req.headers.authorization?.replace('Bearer ', '');
+  async logout(@Req() req: Request, @CurrentUser() user: User) {
+    const rawToken = req.headers.authorization?.replace('Bearer ', '');
 
-  if (rawToken) {
-    try {
-      const decoded = this.jwtService.decode(rawToken) as {
-        jti?: string; exp?: number;
-      } | null;
+    if (rawToken) {
+      try {
+        const decoded = this.jwtService.decode(rawToken) as {
+          jti?: string;
+          exp?: number;
+        } | null;
 
-      if (decoded?.jti && decoded?.exp) {
-        await this.authService.logout(decoded.jti, decoded.exp, user); // ← pass user
+        if (decoded?.jti && decoded?.exp) {
+          await this.authService.logout(decoded.jti, decoded.exp, user); // ← pass user
+        }
+      } catch {
+        // Malformed token
       }
-    } catch {
-      // Malformed token
     }
-  }
 
-  return { message: 'Logged out successfully' };
-}
+    return { message: 'Logged out successfully' };
+  }
 
   @Post('forgot-password')
   @Throttle({ default: { ttl: 60_000, limit: 3 } })   // strict — OTPs are a DDoS surface
