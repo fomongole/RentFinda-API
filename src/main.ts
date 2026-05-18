@@ -48,7 +48,7 @@ async function bootstrap() {
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('Rentora HouseLink Uganda')
-      .setDescription('Backend API for the RentFinda property rental platform')
+      .setDescription('Backend API for the RHU property rental platform')
       .setVersion('1.0')
       .addBearerAuth()
       .addCookieAuth('access_token')
@@ -63,7 +63,7 @@ async function bootstrap() {
 
   const logger = app.get(Logger);
   logger.log(
-    `🚀 RentFinda API running on: http://localhost:${port}/api/v1`,
+    `🚀 Rentora HouseLink Uganda API running on: http://localhost:${port}/api/v1`,
     'Bootstrap',
   );
   if (process.env.NODE_ENV !== 'production') {
