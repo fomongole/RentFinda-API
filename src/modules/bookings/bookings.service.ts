@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+
 import { Booking } from './entities/booking.entity';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { FilterBookingsDto } from './dto/filter-bookings.dto';
@@ -15,11 +16,13 @@ import { ConfirmBookingDto } from './dto/confirm-booking.dto';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { CancelByRenterDto } from './dto/cancel-by-renter.dto';
 import { BookingStatus } from './enums/booking-status.enum';
+
 import { PropertiesService } from '../properties/properties.service';
 import { HostelRoomsService } from '../hostel-rooms/hostel-rooms.service';
 import { HostelRoomStatus } from '../hostel-rooms/enums/hostel-room-status.enum';
 import { PropertyStatus } from '../properties/enums/property-status.enum';
 import { PropertyType } from '../properties/enums/property-type.enum';
+
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { AuditAction } from '../audit-logs/enums/audit-action.enum';
@@ -34,7 +37,7 @@ import { ConfigService } from '@nestjs/config';
 @Injectable()
 export class BookingsService {
   constructor(
-  @InjectRepository(Booking)
+    @InjectRepository(Booking)
     private readonly bookingRepository: Repository<Booking>,
     private readonly propertiesService: PropertiesService,
     private readonly hostelRoomsService: HostelRoomsService,
@@ -42,7 +45,7 @@ export class BookingsService {
     private readonly notificationsService: NotificationsService,
     private readonly emailService: EmailService,
     private readonly config: ConfigService,
-) {}
+  ) {}
 
   /**
    * Called from the mobile app (public endpoint — no auth required).
@@ -51,12 +54,11 @@ export class BookingsService {
    * The mobile app MUST display this token to the renter — it cannot be recovered.
    *
    * Side-effects:
-   *   - Hostel room booking → room.status = RESERVED
-   *   - If userId supplied → BOOKING_CREATED notification (not yet — wait for admin confirm)
+   * - Hostel room booking → room.status = RESERVED
+   * - If userId supplied → BOOKING_CREATED notification (not yet — wait for admin confirm)
    */
   async create(dto: CreateBookingDto): Promise<BookingCreateResponse> {
     const property = await this.propertiesService.findOne(dto.propertyId);
-
     let hostelRoom: HostelRoom | null = null;
 
     if (dto.hostelRoomId) {
@@ -65,7 +67,6 @@ export class BookingsService {
           'hostelRoomId can only be provided for properties of type HOSTEL.',
         );
       }
-
       hostelRoom = await this.hostelRoomsService.findOne(dto.hostelRoomId);
 
       if (hostelRoom.property.id !== property.id) {
@@ -73,7 +74,6 @@ export class BookingsService {
           'The specified room does not belong to the specified hostel property.',
         );
       }
-
       if (hostelRoom.status !== HostelRoomStatus.AVAILABLE) {
         throw new BadRequestException(
           `Room "${hostelRoom.roomNumber}" is not available (current status: ${hostelRoom.status}).`,
@@ -139,6 +139,7 @@ export class BookingsService {
       .createQueryBuilder('booking')
       .leftJoinAndSelect('booking.property', 'property')
       .leftJoinAndSelect('property.district', 'district')
+      .leftJoinAndSelect('property.images', 'images') // Fetches the images array
       .leftJoinAndSelect('booking.hostelRoom', 'hostelRoom')
       .orderBy('booking.createdAt', 'DESC');
 
@@ -160,7 +161,8 @@ export class BookingsService {
   async findOne(id: string): Promise<Booking> {
     const booking = await this.bookingRepository.findOne({
       where: { id },
-      relations: ['property', 'property.district', 'hostelRoom'],
+      // Added 'property.images' to ensure thumbnails load correctly on single requests
+      relations: ['property', 'property.district', 'property.images', 'hostelRoom'],
     });
     if (!booking) throw new NotFoundException('Booking not found');
     return booking;
@@ -169,9 +171,9 @@ export class BookingsService {
   /**
    * Admin confirms a booking.
    * Side-effects:
-   *   - Hostel room → OCCUPIED
-   *   - Regular property → RENTED
-   *   - Notification → BOOKING_CONFIRMED (if booking has a linked userId)
+   * - Hostel room → OCCUPIED
+   * - Regular property → RENTED
+   * - Notification → BOOKING_CONFIRMED (if booking has a linked userId)
    */
   async confirm(
     id: string,
@@ -239,9 +241,9 @@ export class BookingsService {
   /**
    * Cancel a booking (admin or renter).
    * Side-effects:
-   *   - Reverts hostel room → AVAILABLE
-   *   - Reverts regular property → AVAILABLE (only if previously CONFIRMED)
-   *   - Notification → BOOKING_CANCELLED (admin cancellation, if booking has userId)
+   * - Reverts hostel room → AVAILABLE
+   * - Reverts regular property → AVAILABLE (only if previously CONFIRMED)
+   * - Notification → BOOKING_CANCELLED (admin cancellation, if booking has userId)
    */
   async cancel(
     id: string,
@@ -330,6 +332,8 @@ export class BookingsService {
       .createQueryBuilder('booking')
       .addSelect('booking.cancellationTokenHash')
       .leftJoinAndSelect('booking.property', 'property')
+      .leftJoinAndSelect('property.district', 'district')
+      .leftJoinAndSelect('property.images', 'images') // Include images here as well
       .leftJoinAndSelect('booking.hostelRoom', 'hostelRoom')
       .where('booking.id = :id', { id })
       .getOne();
@@ -426,7 +430,6 @@ export class BookingsService {
 
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
     const thisWeek = await this.bookingRepository
       .createQueryBuilder('booking')
       .where('booking.createdAt >= :sevenDaysAgo', { sevenDaysAgo })
@@ -441,7 +444,8 @@ export class BookingsService {
   async findForUser(userId: string) {
     return this.bookingRepository.find({
       where: { userId },
-      relations: ['property', 'property.district', 'hostelRoom'],
+      // Added 'property.images' so the mobile app's GET /bookings/me endpoint has visual data
+      relations: ['property', 'property.district', 'property.images', 'hostelRoom'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -452,7 +456,6 @@ export class BookingsService {
    */
   async syncGuestBookings(userId: string, dto: SyncBookingsDto) {
     let syncedCount = 0;
-
     for (const item of dto.bookings) {
       // Fetch booking with the hidden hash
       const booking = await this.bookingRepository
@@ -471,7 +474,6 @@ export class BookingsService {
         syncedCount++;
       }
     }
-
     return { synced: syncedCount };
   }
 
@@ -480,15 +482,12 @@ export class BookingsService {
    */
   async cancelMine(id: string, reason: string | undefined, userId: string): Promise<Booking> {
     const booking = await this.findOne(id);
-
     if (booking.userId !== userId) {
       throw new UnauthorizedException('You do not have permission to cancel this booking.');
     }
-
     if (booking.status === BookingStatus.CANCELLED || booking.status === BookingStatus.COMPLETED) {
       throw new BadRequestException(`Cannot cancel a booking with status "${booking.status}".`);
     }
-
     return this.cancel(id, { reason }, 'renter');
   }
 }
